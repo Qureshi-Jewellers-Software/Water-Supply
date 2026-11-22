@@ -103,12 +103,8 @@ input[type=checkbox]{width:30px;height:30px;accent-color:var(--accent);flex:none
 @media print{
   body{background:#fff;color:#000}
   #app,nav,.sheet,#toast{display:none!important}
-  #print{display:block;font-family:monospace;font-size:13px;padding:8px;max-width:300px}
-  #print h3{margin:0 0 4px;font-size:16px;text-align:center}
-  #print table{width:100%;border-collapse:collapse}
-  #print td{padding:2px 0;vertical-align:top}
-  #print td:last-child{text-align:right}
-  #print hr{border:0;border-top:1px dashed #000}
+  #print{display:block;padding:0;margin:0}
+  #print img{width:58mm;display:block}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -481,7 +477,7 @@ function vToday(){
 }
 function recBtns(r){
   const fl = full();
-  return `${fl ? `<button class="btn sm ghost" data-act="edit" data-id="${r.id}" aria-label="Edit">✎</button>` : ""}${fl || (mine(r) && r.day === today()) ? `<button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button>` : ""}`;
+  return `${r.kind === "delivery" ? `<button class="btn sm ghost" data-act="printDel" data-id="${r.id}" aria-label="Print">🖨️</button>` : ""}${fl ? `<button class="btn sm ghost" data-act="edit" data-id="${r.id}" aria-label="Edit">✎</button>` : ""}${fl || (mine(r) && r.day === today()) ? `<button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button>` : ""}`;
 }
 function rowDelivery(r, showName){
   const c = cust(r.data.cust), d = r.data;
@@ -573,15 +569,105 @@ function waLink(c, s){
   lines.push(`${L("Tareekh","Date")}: ${nice(today())}`, L("Shukriya","Thank you"));
   return "https://wa.me/" + waNum(c.data.phone) + "?text=" + encodeURIComponent(lines.join("\n"));
 }
-function printSlip(id){
-  const c = cust(id), s = custStats()[id] || { bal:0, held:0 };
-  const hist = S.recs.filter(r => (r.kind === "delivery" || r.kind === "payment") && r.data.cust === id).slice(-12);
-  $("#print").innerHTML = `<h3>${e(S.shop.name)}</h3><div style="text-align:center">${e(S.shop.phone || "")}</div><hr>
-  <div>${e(c.data.name)}</div><div>${e(c.data.addr || "")}</div><div>${nice(today())}</div><hr>
-  <table>${hist.map(r => r.kind === "delivery" ? `<tr><td>${nice(r.day).slice(0,5)} ${r.data.type === "tank" ? r.data.qty + "L" : r.data.qty + " botal"}</td><td>${Math.round(r.data.amount)}</td></tr>` : `<tr><td>${nice(r.day).slice(0,5)} wasool</td><td>-${Math.round(r.data.amount)}</td></tr>`).join("")}</table><hr>
-  <table><tr><td><b>Baqaya</b></td><td><b>${rs(s.bal)}</b></td></tr>${c.data.type === "bottle" ? `<tr><td>Botal aap ke paas</td><td>${s.held}</td></tr>` : ""}</table><hr><div style="text-align:center">Shukriya</div>`;
-  try { window.print(); } catch(_){ toast(L("Yahan print nahi chalta","Printing is not available here")); }
+/* ---------- printing (58mm thermal, Bluetooth) ---------- */
+const PW = 384;
+function drawLines(L){
+  const pad = 8, lh = 34, H = L.length * lh + pad * 2 + 20, cv = document.createElement("canvas");
+  cv.width = PW; cv.height = H;
+  const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, PW, H); g.fillStyle = "#000"; g.textBaseline = "middle";
+  L.forEach((l, i) => { const y = pad + i * lh + lh / 2; g.font = (l.b ? "bold " : "") + (l.big ? 26 : 22) + "px sans-serif";
+    if (l.c){ g.textAlign = "center"; g.fillText(l.t, PW / 2, y, PW - pad * 2); }
+    else { g.textAlign = "left"; g.fillText(l.t, pad, y, l.r ? PW - 150 : PW - pad * 2); if (l.r){ g.textAlign = "right"; g.fillText(l.r, PW - pad, y); } } });
+  return cv;
 }
+const DASH = { t:"--------------------------------", c:1 };
+const pn = n => String(Math.round(num(n)));
+function head(L, c){
+  const dt = new Date();
+  L.push({ t:S.shop.name, c:1, b:1, big:1 });
+  if (S.shop.phone) L.push({ t:S.shop.phone, c:1 });
+  L.push({ t:nice(today()) + " " + pad(dt.getHours()) + ":" + pad(dt.getMinutes()), c:1 });
+  L.push({ t:c.data.name, b:1, big:1 });
+  if (c.data.addr) L.push({ t:c.data.addr });
+  L.push(DASH);
+}
+/* grahak ka hisaab kisi entry tak (us entry samet) */
+function statsUpTo(custId, recId){
+  let bal = 0, held = 0;
+  for (const r of S.recs){
+    if (r.data.cust === custId){
+      if (r.kind === "delivery"){ bal += num(r.data.amount) - num(r.data.paid); if (r.data.type === "bottle") held += num(r.data.qty) - num(r.data.ret); }
+      else if (r.kind === "payment") bal -= num(r.data.amount);
+    }
+    if (r.id === recId) break;
+  }
+  return { bal, held };
+}
+/* ek delivery ki raseed */
+function slipDelivery(rec){
+  const c = cust(rec.data.cust), d = rec.data, L = [];
+  head(L, c);
+  const after = statsUpTo(c.id, rec.id), bill = num(d.amount), before = after.bal - bill + num(d.paid);
+  if (d.type === "tank") L.push({ t:pn(d.qty) + " litre x " + d.rate, r:pn(bill) });
+  else { L.push({ t:pn(d.qty) + " botal x " + d.rate, r:pn(bill) }); if (num(d.ret)) L.push({ t:"Khali wapas li", r:pn(d.ret) }); }
+  L.push(DASH);
+  if (Math.round(before)){ L.push({ t:"Bill", r:pn(bill) }); L.push({ t:"Purana baqaya", r:(before > 0 ? "+" : "") + pn(before) }); }
+  L.push({ t:"TOTAL", r:"Rs " + pn(bill + before), b:1, big:1 });
+  L.push({ t:"Mile", r:"Rs " + pn(d.paid) });
+  L.push({ t:"Baqaya", r:"Rs " + pn(after.bal), b:1 });
+  if (d.type === "bottle") L.push({ t:"Botal aap ke paas", r:pn(after.held) });
+  if (d.by) L.push({ t:"Delivery: " + d.by });
+  L.push({ t:"Shukriya!", c:1 });
+  return drawLines(L);
+}
+/* grahak ka poora hisaab (aakhri 10 entries) */
+function slipStatement(id){
+  const c = cust(id), s = custStats()[id] || { bal:0, held:0 }, L = [];
+  head(L, c);
+  S.recs.filter(r => (r.kind === "delivery" || r.kind === "payment") && r.data.cust === id).slice(-10).forEach(r => {
+    const dd = nice(r.day).slice(0, 5);
+    if (r.kind === "delivery") L.push({ t:dd + "  " + pn(r.data.qty) + (r.data.type === "tank" ? " litre" : " botal") + (num(r.data.paid) ? "  (naqd " + pn(r.data.paid) + ")" : ""), r:pn(r.data.amount) });
+    else L.push({ t:dd + "  wasool", r:"-" + pn(r.data.amount) });
+  });
+  L.push(DASH);
+  L.push({ t:"BAQAYA", r:"Rs " + pn(s.bal), b:1, big:1 });
+  if (c.data.type === "bottle") L.push({ t:"Botal aap ke paas", r:pn(s.held) });
+  L.push({ t:"Shukriya!", c:1 });
+  return drawLines(L);
+}
+function toRaster(cv){
+  const W = cv.width, H = cv.height, bpr = W / 8, px = cv.getContext("2d").getImageData(0, 0, W, H).data, out = [];
+  for (let y0 = 0; y0 < H; y0 += 100){
+    const hh = Math.min(100, H - y0), buf = new Uint8Array(8 + bpr * hh); buf.set([0x1d, 0x76, 0x30, 0, bpr & 255, bpr >> 8, hh & 255, hh >> 8]);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < W; x++){ const i = ((y0 + y) * W + x) * 4; if (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11 < 140) buf[8 + y * bpr + (x >> 3)] |= 0x80 >> (x & 7); }
+    out.push(buf);
+  }
+  return out;
+}
+const SVC = ["000018f0-0000-1000-8000-00805f9b34fb","0000ff00-0000-1000-8000-00805f9b34fb","e7810a71-73ae-499d-8c15-faa9aef0c3f2","49535343-fe7d-4ae5-8fa9-9fafd205e455","0000ffe0-0000-1000-8000-00805f9b34fb","0000fee7-0000-1000-8000-00805f9b34fb"];
+let btDev = null, btChar = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function connectPrinter(){
+  if (btChar && btDev && btDev.gatt.connected) return;
+  if (!btDev) btDev = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:SVC });
+  const s = await btDev.gatt.connect();
+  for (const svc of await s.getPrimaryServices()) for (const ch of await svc.getCharacteristics()) if (ch.properties.write || ch.properties.writeWithoutResponse){ btChar = ch; return; }
+  throw new Error(L("Printer ka write port nahi mila","Printer write port not found"));
+}
+async function send(d){ for (let i = 0; i < d.length; i += 100){ const ch = d.slice(i, i + 100); if (btChar.properties.writeWithoutResponse) await btChar.writeValueWithoutResponse(ch); else await btChar.writeValue(ch); await sleep(25); } }
+async function printCV(cv){
+  if (!navigator.bluetooth){
+    /* Bluetooth na ho (maslan iPhone / computer): bill ki tasveer aam print se */
+    $("#print").innerHTML = `<img alt="" src="${cv.toDataURL("image/png")}">`;
+    try { window.print(); } catch(_){ toast(L("Is mobile par print nahi chalta. Android Chrome istemal karein.","Printing is not available here. Use Chrome on Android.")); }
+    return;
+  }
+  toast(L("Printer se jur raha hai...","Connecting to printer..."));
+  try { await connectPrinter(); await send(new Uint8Array([0x1b, 0x40])); for (const s of toRaster(cv)) await send(s); await send(new Uint8Array([0x1b, 0x64, 5])); toast(L("Print ho gaya ✔","Printed ✔")); }
+  catch(err){ btChar = null; throw new Error(err && err.name === "NotFoundError" ? L("Printer chuna nahi gaya","No printer chosen") : L("Print nahi hua: ","Print failed: ") + (err.message || err)); }
+}
+function printSlip(id){ return printCV(slipStatement(id)); }
+
 function fPick(){
   sheet(L("Grahak chunein","Choose customer"), `<input id="pq" type="search" placeholder="${L("Naam ya gali likhein","Type name or street")}" aria-label="Search"><div id="pickList" style="margin-top:8px">${pickRows("")}</div>`);
 }
@@ -602,7 +688,8 @@ function fDeliver(id, rec){
     <div><label for="dv_p">${L("Abhi naqd mila (baqi udhaar)","Cash received now (rest is credit)")}</label><input id="dv_p" name="paid" inputmode="decimal" value="${d ? e(d.paid) : "0"}"></div>
     <button type="button" class="btn ghost sm" data-act="fullpaid" style="align-self:flex-start">${L("Poora naqd mila","Paid in full")}</button>
     <div><label for="dv_d">${L("Tareekh","Date")}</label><input id="dv_d" name="day" type="date" value="${rec ? rec.day : today()}"></div>
-    <button class="btn wide">${rec ? L("Tabdeeli mehfooz karein","Save changes") : L("Delivery likhein","Save delivery")}</button></form>`);
+    <button class="btn wide">${rec ? L("Tabdeeli mehfooz karein","Save changes") : L("Delivery likhein","Save delivery")}</button>
+    ${rec ? "" : `<button class="btn wide ghost" name="doprint" value="1" data-print="1">🖨️ ${L("Print + Save","Print + Save")}</button>`}</form>`);
 }
 function fPay(id, rec){
   const c = cust(id), s = custStats()[id] || { bal:0 };
@@ -768,6 +855,7 @@ const acts = {
   newShop: fNewShop, newCust: () => fCust(null), newExp: () => fExp(null), newProd: fProd, newSale: fSale, newWorker: fWorker, pick: fPick,
   cust: el => sCust(el.dataset.id), editCust: el => fCust(cust(el.dataset.id)),
   deliver: el => fDeliver(el.dataset.id), pay: el => fPay(el.dataset.id), print: el => printSlip(el.dataset.id),
+  printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (r) return printCV(slipDelivery(r)); },
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
   shopActive: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id);
@@ -821,7 +909,8 @@ const forms = {
     if (pd > most && f.dataset.ok !== String(pd)){ f.dataset.ok = String(pd); throw new Error(L(`Naqd ${rs(pd)} likha hai, jab ke bill aur purana baqaya mila kar ${rs(most)} banta hai. Ghalti hai to theek karein, sahi hai to dobara dabayein.`, `Cash ${rs(pd)} is more than bill plus old balance (${rs(most)}). Fix it, or tap again if correct.`)); }
     const data = { cust:c.id, type:c.data.type, qty, ret:num(o.ret), rate, amount:qty * rate, paid:pd, by: old ? old.data.by : myName() };
     if (old){ data.edited = { by:myName(), at:new Date().toISOString() }; const day = o.day || old.day; await api.upd(old.id, data, day); old.data = data; old.day = day; closeSheet(); render(); toast(L("Tabdeeli mehfooz ho gayi","Changes saved")); return; }
-    S.recs.push(await api.add(S.shop.id, "delivery", o.day || today(), data)); closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
+    const nr = await api.add(S.shop.id, "delivery", o.day || today(), data); S.recs.push(nr); closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
+    if (o.doprint){ try { await printCV(slipDelivery(nr)); } catch(err){ toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message); } }
   },
   pay: async (o, f) => {
     if (num(o.amount) <= 0) throw new Error(L("Raqam likhein","Enter an amount"));
@@ -863,7 +952,8 @@ document.addEventListener("change", async ev => {
 });
 document.addEventListener("submit", async ev => {
   const f = ev.target.closest("form[data-form]"); if (!f) return; ev.preventDefault(); if (busy) return;
-  const o = Object.fromEntries(new FormData(f).entries()), btn = f.querySelector("button:not([type=button])");
+  const sub = ev.submitter, o = Object.fromEntries(new FormData(f).entries()), btn = sub || f.querySelector("button:not([type=button])");
+  if (sub && sub.dataset.print) o.doprint = "1";
   const old = btn ? btn.textContent : "";
   busy = true; if (btn){ btn.disabled = true; btn.textContent = L("Ruk jayein, ho raha hai...","Please wait..."); }
   try { await forms[f.dataset.form](o, f); } catch(err){ toast(err.message || String(err)); }
