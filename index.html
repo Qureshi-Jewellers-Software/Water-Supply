@@ -37,8 +37,9 @@ header small{display:block;font-weight:500;opacity:.85;font-size:14px}
 main{flex:1;padding:14px 14px 110px;display:flex;flex-direction:column;gap:14px}
 nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--card);border-top:1px solid var(--line)}
 nav .in{max-width:560px;margin:0 auto;display:flex;align-items:flex-end}
-nav button{flex:1;background:none;border:0;padding:10px 2px 12px;font-size:14px;font-weight:700;color:var(--mute);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:3px solid transparent}
+nav button{flex:1 1 0;min-width:0;background:none;border:0;padding:10px 1px 12px;font-size:13px;font-weight:700;color:var(--mute);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:3px solid transparent}
 nav button svg{width:28px;height:28px}
+nav button span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 nav button.on{color:var(--accent);border-top-color:var(--accent)}
 nav button.plus{flex:0 0 auto;width:66px;height:66px;border-radius:50%;background:var(--accent);color:#fff;margin:-28px 8px 10px;padding:0;justify-content:center;border:4px solid var(--card);box-shadow:0 4px 12px #2f6db566}
 nav button.plus svg{width:34px;height:34px}
@@ -151,6 +152,7 @@ const IC = {
   plant:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="6" height="18" rx="2"/><rect x="14" y="8" width="6" height="13" rx="2"/><path d="M10 12h4"/></svg>',
   cash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.500"/></svg>',
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',
+  route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.500"/><circle cx="12" cy="12" r="1.500"/><circle cx="19" cy="12" r="1.500"/></svg>'
 };
@@ -404,9 +406,10 @@ function render(){
   if (supply()) tabs.push(["cust",L("Grahak","Customers"),IC.users]);
   if (full() && mods().plant) tabs.push(["plant","Plant",IC.plant]);
   if (full()) tabs.push(["exp",L("Kharcha","Expense"),IC.cash],["his",L("Hisaab","Accounts"),IC.chart]);
+  if (tabs.length % 2 === 0 && supply()) tabs.push(["route",L("Route","Route"),IC.route]);
   tabs.push(["more",L("Aur","More"),IC.more]);
   if (!tabs.some(t => t[0] === S.tab)) S.tab = "aaj";
-  const view = {aaj:vToday, cust:vCust, plant:vPlant, exp:vExp, his:vHisaab, more:vMore}[S.tab]();
+  const view = {aaj:vToday, cust:vCust, plant:vPlant, exp:vExp, his:vHisaab, route:vRoute, more:vMore}[S.tab]();
   app.innerHTML = banner + `<header><h1>${e(S.shop.name)}<small>${e(S.me.name || S.me.email)} · ${isOwner() ? L("Malik","Owner") : L("Delivery wala","Delivery staff")}</small></h1>${isOwner() && pin() ? `<button class="hbtn" data-act="${S.unlocked ? "pinLock" : "pinUnlock"}">${S.unlocked ? "Lock" : L("Malik PIN","Owner PIN")}</button>` : ""}${langBtn}</header>
   <main>${view}</main>
   <nav><div class="in">${navHtml(tabs)}</div></nav>`;
@@ -548,6 +551,15 @@ function ordersCard(){
   return `<div class="card" id="ordersCard" style="border:2px solid var(--accent)"><h2>📲 ${L("Naye order","New orders")} · ${os.length}</h2>${os.map(r => { const c = cust(r.data.cust), tank = c && c.data.type === "tank";
     return `<div class="row"><div class="g"><b>${e(c ? c.data.name : "?")}</b><small>${num(r.data.qty).toLocaleString()} ${tank ? L("litre","litres") : L("botal","bottles")} · ${ago(r.data.at || r.created_at)}${c && c.data.addr ? " · " + e(c.data.addr) : ""}${r.data.note ? `<br>"${e(r.data.note)}"` : ""}</small></div>
     <button class="btn sm" data-act="deliver" data-id="${r.data.cust}" data-q="${num(r.data.qty)}">${L("Delivery","Deliver")}</button><button class="btn sm danger" data-act="ocancel" data-id="${r.id}" aria-label="Cancel">✕</button></div>`; }).join("")}</div>`;
+}
+function vRoute(){
+  const t = today(), dow = new Date().getDay(), allToday = of("delivery").filter(r => r.day === t), done = new Set(allToday.map(r => r.data.cust));
+  const route = of("customer").filter(c => (c.data.days || []).includes(dow)).sort((a, b) => (done.has(a.id) - done.has(b.id)) || a.data.name.localeCompare(b.data.name));
+  const left = route.filter(c => !done.has(c.id)).length;
+  const rows = route.map(c => `<div class="row tap" data-act="deliver" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || "")}${c.data.phone ? " · " + e(c.data.phone) : ""}</small></div>${done.has(c.id) ? `<span class="pill good">${L("Ho gaya","Done")}</span>` : `<span class="pill warn">${L("Baqi","Pending")}</span>`}</div>`).join("");
+  return `<div class="mute" style="font-weight:700">${nice(t)}</div>
+  ${ordersCard()}
+  <div class="card"><h2>🚚 ${L("Aaj ka route","Today's route")}${route.length ? ` · ${route.length - left}/${route.length} ${L("ho gaye","done")}` : ""}</h2>${rows || `<p class="mute">${L("Aaj ke liye koi ghar tay nahi. Grahak ke form mein \"Delivery ke din\" chunein, phir woh yahan aayenge.","No stops for today. Choose delivery days in the customer form and they will show here.")}</p>`}</div>`;
 }
 function recBtns(r){
   const fl = full();
@@ -966,6 +978,7 @@ const acts = {
   morePin: () => sheet(L("Malik PIN","Owner PIN"), `<div class="f">${pinHtml()}</div>`),
   go: el => {
     const v = el.dataset.v, jump = id => setTimeout(() => { const n = document.getElementById(id); if (n) n.scrollIntoView({ behavior:"smooth", block:"start" }); }, 60);
+    if (v === "route" && document.querySelector("nav [data-v=route]")){ S.tab = "route"; render(); window.scrollTo(0, 0); return; }
     if (v === "list" || v === "route"){ jump(v === "list" ? "todayList" : "routeCard"); return; }
     if (v === "due"){ S.cv = "due"; S.tab = "cust"; render(); window.scrollTo(0, 0); return; }
     if (v === "his"){ S.tab = "his"; render(); window.scrollTo(0, 0); return; }
