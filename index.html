@@ -387,7 +387,7 @@ async function boot(){
       }
     }
   }catch(err){ toast(err.message || String(err)); }
-  S.loading = false; S.tab = "aaj"; S.unlocked = false; S.cv = "all"; render();
+  S.loading = false; S.tab = "aaj"; S.unlocked = false; S.cv = "all"; render(); if (S.me) armBack();
 }
 
 /* ================= render ================= */
@@ -1241,6 +1241,18 @@ function startOrderPoll(){
     } catch(_){}
   }, 45000);
 }
+
+/* mobile ka Back: pehle form band, phir "Aaj", phir do dafa dabane par app band */
+function armBack(){ try { if (!(history.state && history.state.ps)) history.pushState({ ps:1 }, ""); } catch(_){} }
+let lastBack = 0;
+window.addEventListener("popstate", () => {
+  if (ORDER_TOK || !S.me) return;
+  if ($("#sheet").innerHTML){ $("#sheet").innerHTML = ""; armBack(); return; }
+  if (S.tab !== "aaj"){ S.tab = "aaj"; render(); window.scrollTo(0, 0); armBack(); return; }
+  const now = Date.now();
+  if (now - lastBack < 2000){ history.back(); return; }
+  lastBack = now; toast(L("Band karne ke liye dobara Back dabayein","Press Back again to exit")); armBack();
+});
 
 if (DEMO) seedDemo();
 if (ORDER_TOK) loadPortal(); else { boot(); startOrderPoll(); }
