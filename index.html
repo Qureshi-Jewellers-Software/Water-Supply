@@ -72,12 +72,16 @@ nav button.plus svg{width:34px;height:34px}
 .btn.blue{background:var(--blue);color:#fff}
 .btn.sm{padding:10px 14px;font-size:16px;border-radius:10px;min-height:46px;min-width:46px}
 .btn.danger{background:transparent;color:var(--bad);border:2px solid var(--bad)}
-.btn.wa{background:#1f8a4c;color:#fff}
+.btn.wa{background:#16a34a;color:#fff}
+.btn:disabled{opacity:.45}
 .btn:focus-visible,.hbtn:focus-visible,nav button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
 .row{display:flex;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0;padding-bottom:0}
 .row .g{flex:1;min-width:0}
 .row .g b{display:block;font-weight:700;overflow-wrap:anywhere}
+.row.rw{flex-wrap:wrap;row-gap:8px}
+.row.rw .g b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbtns{flex-basis:100%;display:flex;justify-content:flex-end;gap:8px}
 .row .g small{color:var(--mute);font-size:15px;overflow-wrap:anywhere}
 .row .r{text-align:right;font-weight:800;white-space:nowrap}
 .tap{cursor:pointer}
@@ -571,18 +575,19 @@ function vRoute(){
 }
 function recBtns(r){
   const fl = full();
-  return `${r.kind === "delivery" ? `<button class="btn sm blue" data-act="printDel" data-id="${r.id}" aria-label="Print">🖨️</button>` : ""}${fl ? `<button class="btn sm ghost" data-act="edit" data-id="${r.id}" aria-label="Edit">✎</button>` : ""}${fl || (mine(r) && r.day === today()) ? `<button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button>` : ""}`;
+  const x = `${r.kind === "delivery" ? `<button class="btn sm blue" data-act="printDel" data-id="${r.id}" aria-label="Print">🖨️</button>` : ""}${fl ? `<button class="btn sm ghost" data-act="edit" data-id="${r.id}" aria-label="Edit">✎</button>` : ""}${fl || (mine(r) && r.day === today()) ? `<button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button>` : ""}`;
+  return x ? `<div class="rbtns">${x}</div>` : "";
 }
 function rowDelivery(r, showName){
   const c = cust(r.data.cust), d = r.data;
   const what = d.type === "tank" ? `${num(d.qty).toLocaleString()} ${L("litre","litres")}` : `${d.qty} ${L("botal","bottles")}${num(d.ret) ? ` · ${d.ret} ${L("khali wapas","empties")}` : ""}`;
   const due = num(d.amount) - num(d.paid);
-  return `<div class="row"><div class="g"><b>${showName ? e(c ? c.data.name : "?") : nice(r.day)}</b><small>${what}${num(d.paid) ? ` · ${L("naqd","cash")} ${rs(d.paid)}` : ""}${d.by ? " · " + e(d.by) : ""}${d.edited ? " · " + L("badli gayi","edited") : ""}</small></div>
+  return `<div class="row rw"><div class="g"><b>${showName ? e(c ? c.data.name : "?") : nice(r.day)}</b><small>${what}${num(d.paid) ? ` · ${L("naqd","cash")} ${rs(d.paid)}` : ""}${d.by ? " · " + e(d.by) : ""}${d.edited ? " · " + L("badli gayi","edited") : ""}</small></div>
   <div class="r">${rs(d.amount)}<br><span class="pill ${due > 0 ? "bad" : "good"}">${due > 0 ? L("Udhaar ","Due ") + rs(due) : L("Naqd","Paid")}</span></div>${recBtns(r)}</div>`;
 }
 function rowPay(r, showName){
   const c = cust(r.data.cust);
-  return `<div class="row"><div class="g"><b>${showName ? e(c ? c.data.name : "?") : nice(r.day)}</b><small>${L("Paisa wasool","Payment received")}${r.data.by ? " · " + e(r.data.by) : ""}${r.data.edited ? " · " + L("badli gayi","edited") : ""}</small></div><div class="r good">${rs(r.data.amount)}</div>${recBtns(r)}</div>`;
+  return `<div class="row rw"><div class="g"><b>${showName ? e(c ? c.data.name : "?") : nice(r.day)}</b><small>${L("Paisa wasool","Payment received")}${r.data.by ? " · " + e(r.data.by) : ""}${r.data.edited ? " · " + L("badli gayi","edited") : ""}</small></div><div class="r good">${rs(r.data.amount)}</div>${recBtns(r)}</div>`;
 }
 
 /* ---------- Grahak ---------- */
@@ -776,11 +781,27 @@ async function printCV(cv){
   try { await connectPrinter(); await send(new Uint8Array([0x1b, 0x40])); for (const s of toRaster(cv)) await send(s); await send(new Uint8Array([0x1b, 0x64, 5])); toast(L("Print ho gaya ✔","Printed ✔")); }
   catch(err){ btChar = null; throw new Error(printErr(err)); }
 }
-function showSlip(cv, title, printed, note){
+function delText(rec){
+  const c = cust(rec.data.cust), d = rec.data, after = statsUpTo(c.id, rec.id), bill = num(d.amount), before = after.bal - bill + num(d.paid), si = shopInfo();
+  const t = [`*${S.shop.name}*`];
+  if (si.addr) t.push(si.addr); if (si.phone) t.push("Ph: " + si.phone);
+  t.push("", `${L("Tareekh","Date")}: ${nice(rec.day)}`, `${L("Grahak","Customer")}: ${c.data.name}`, "");
+  t.push(d.type === "tank" ? `${pn(d.qty)} litre x ${d.rate} = Rs ${pn(bill)}` : `${pn(d.qty)} botal x ${d.rate} = Rs ${pn(bill)}`);
+  if (d.type !== "tank" && num(d.ret)) t.push(`${L("Khali wapas li","Empties taken")}: ${pn(d.ret)}`);
+  if (Math.round(before)) t.push(`${L("Purana baqaya","Previous balance")}: Rs ${pn(before)}`);
+  t.push(`*${L("Kul","Total")}: Rs ${pn(bill + before)}*`, `${L("Mile","Paid")}: Rs ${pn(d.paid)}`, `*${L("Baqaya","Balance")}: Rs ${pn(after.bal)}*`);
+  if (d.type === "bottle") t.push(`${L("Botal aap ke paas","Bottles with you")}: ${pn(after.held)}`);
+  t.push("", L("Shukriya!","Thank you!"));
+  return t.join("\n");
+}
+function waDel(rec){ const c = cust(rec.data.cust); return c && c.data.phone ? "https://wa.me/" + waNum(c.data.phone) + "?text=" + encodeURIComponent(delText(rec)) : ""; }
+function showSlip(cv, title, printed, note, rec, waFirst){
   S.slipCv = cv;
   sheet(title, `${note ? `<p class="bad" style="margin:0 0 10px;font-weight:700">${e(note)}</p>` : printed ? `<p class="good" style="margin:0 0 10px;font-weight:700">✔ ${L("Save aur print ho gaya","Saved and printed")}</p>` : ""}
     <div class="slipwrap"><img alt="${L("Raseed","Receipt")}" src="${cv.toDataURL("image/png")}"></div>
-    <div class="f" style="margin-top:14px"><button class="btn wide" data-act="slipPrint">🖨️ ${printed || note ? L("Dobara print","Print again") : L("Print","Print")}</button>
+    <div class="f" style="margin-top:14px">
+    ${rec && waDel(rec) ? `<a class="btn wide wa" target="_blank" rel="noopener" href="${waDel(rec)}">${waFirst ? "✔ " + L("Save ho gaya, ab WhatsApp par bhejein","Saved, now send on WhatsApp") : "WhatsApp"}</a>` : ""}
+    <button class="btn wide blue" data-act="slipPrint">🖨️ ${printed || note ? L("Dobara print","Print again") : L("Print","Print")}</button>
     <button class="btn wide ghost" data-act="close">${L("Band karein","Close")}</button></div>`);
 }
 function printSlip(id){ return printCV(slipStatement(id)); }
@@ -823,8 +844,11 @@ function fDeliver(id, rec, preQ){
     ${prev > 0 ? `<button type="button" class="btn ghost sm" data-act="billpaid">${L("Sirf is bill ke paise","Only this bill")}</button>` : ""}</div>
     <p class="mute" id="dv_after" style="margin:0"></p>
     <div><label for="dv_d">${L("Tareekh","Date")}</label><input id="dv_d" name="day" type="date" value="${rec ? rec.day : today()}"></div>
-    ${rec ? "" : `<label class="chk"><input type="checkbox" id="dv_pr" name="doprint" ${printPref() ? "checked" : ""}>${L("Raseed print karein","Print receipt")}</label>`}
-    <button class="btn wide" id="dv_go">${rec ? L("Tabdeeli mehfooz karein","Save changes") : dvLabel(printPref())}</button></form>`);
+    ${rec ? `<button class="btn wide">${L("Tabdeeli mehfooz karein","Save changes")}</button>` : `<div class="two">
+      <button class="btn blue" data-print="1">🖨️ ${L("Print","Print")}</button>
+      <button class="btn">💾 ${L("Save","Save")}</button></div>
+      <button class="btn wide wa" data-wa="1" ${c.data.phone ? "" : "disabled"}>WhatsApp${c.data.phone ? "" : " (" + L("number nahi","no number") + ")"}</button>
+      <p class="mute" style="margin:0;font-size:15px">${L("Print aur WhatsApp dabane se delivery khud save ho jati hai.","Print and WhatsApp also save the delivery.")}</p>`}</form>`);
 }
 function dvAfter(f){
   const n = $("#dv_after"); if (!n) return;
@@ -867,7 +891,7 @@ function fSale(){ sheet(L("Counter bikri","Counter sale"), `<form class="f" data
 /* ---------- Kharcha ---------- */
 function rowExp(r){
   const N = MODN();
-  return `<div class="row"><div class="g"><b>${e(r.data.cat)}</b><small>${nice(r.day)} · ${e(N[r.data.mod] || L("Sab ka mushtarka","Shared"))}${r.data.note ? " · " + e(r.data.note) : ""}${r.data.edited ? " · " + L("badli gayi","edited") : ""}</small></div><div class="r bad">${rs(r.data.amount)}</div>${recBtns(r)}</div>`;
+  return `<div class="row rw"><div class="g"><b>${e(r.data.cat)}</b><small>${nice(r.day)} · ${e(N[r.data.mod] || L("Sab ka mushtarka","Shared"))}${r.data.note ? " · " + e(r.data.note) : ""}${r.data.edited ? " · " + L("badli gayi","edited") : ""}</small></div><div class="r bad">${rs(r.data.amount)}</div>${recBtns(r)}</div>`;
 }
 function vExp(){
   const list = of("expense").slice().reverse().slice(0, 60);
@@ -1049,7 +1073,7 @@ const acts = {
   newShop: fNewShop, newCust: () => fCust(null), newExp: () => fExp(null), newProd: fProd, newSale: fSale, newWorker: fWorker, pick: () => fPick("deliver"),
   cust: el => sCust(el.dataset.id), editCust: el => fCust(cust(el.dataset.id)),
   deliver: el => fDeliver(el.dataset.id, null, el.dataset.q), pay: el => fPay(el.dataset.id), print: el => { const c = cust(el.dataset.id); showSlip(slipStatement(el.dataset.id), L("Parchi","Statement") + ": " + (c ? c.data.name : "")); },
-  printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (!r) return; const c = cust(r.data.cust); showSlip(slipDelivery(r), L("Raseed","Receipt") + ": " + (c ? c.data.name : "")); },
+  printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (!r) return; const c = cust(r.data.cust); showSlip(slipDelivery(r), L("Raseed","Receipt") + ": " + (c ? c.data.name : ""), false, "", r); },
   slipPrint: async () => { if (S.slipCv) await printCV(S.slipCv); },
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.max(0, Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev))); dvAfter(f); },
   billpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); dvAfter(f); },
@@ -1118,7 +1142,7 @@ const forms = {
     const cv = slipDelivery(nr); let note = "";
     if (o.printFail) note = L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + o.printFail;
     if (o.doprint){ try { await printCV(cv); } catch(err){ note = L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message; } }
-    showSlip(cv, L("Raseed","Receipt") + ": " + c.data.name, o.doprint && !note, note);
+    if (o.doprint || o.dowa || note) showSlip(cv, L("Raseed","Receipt") + ": " + c.data.name, o.doprint && !note, note, nr, !!o.dowa);
   },
   pay: async (o, f) => {
     if (num(o.amount) <= 0) throw new Error(L("Raqam likhein","Enter an amount"));
@@ -1158,12 +1182,13 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", async ev => {
   const el = ev.target;
   if (el.id === "rday"){ S.rday = el.value || today(); render(); return; }
-  if (el.id === "dv_pr"){ try { localStorage.setItem("ps_print", el.checked ? "1" : "0"); } catch(_){} const b = $("#dv_go"); if (b) b.textContent = dvLabel(el.checked); return; } if (el.dataset && el.dataset.act === "mod"){ try { await acts.mod(el); } catch(err){ el.checked = !el.checked; toast(err.message || String(err)); } }
+if (el.dataset && el.dataset.act === "mod"){ try { await acts.mod(el); } catch(err){ el.checked = !el.checked; toast(err.message || String(err)); } }
 });
 document.addEventListener("submit", async ev => {
   const f = ev.target.closest("form[data-form]"); if (!f) return; ev.preventDefault(); if (busy) return;
   const sub = ev.submitter, o = Object.fromEntries(new FormData(f).entries()), btn = sub || f.querySelector("button:not([type=button])");
   if (sub && sub.dataset.print) o.doprint = "1";
+  if (sub && sub.dataset.wa) o.dowa = "1";
   const old = btn ? btn.textContent : "";
   busy = true; if (btn){ btn.disabled = true; btn.textContent = L("Ruk jayein, ho raha hai...","Please wait..."); }
   try { await forms[f.dataset.form](o, f); } catch(err){ toast(err.message || String(err)); }
