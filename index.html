@@ -811,14 +811,16 @@ function fDeliver(id, rec, preQ){
     ${prev > 0 ? `<button type="button" class="btn ghost sm" data-act="billpaid">${L("Sirf is bill ke paise","Only this bill")}</button>` : ""}</div>
     <p class="mute" id="dv_after" style="margin:0"></p>
     <div><label for="dv_d">${L("Tareekh","Date")}</label><input id="dv_d" name="day" type="date" value="${rec ? rec.day : today()}"></div>
-    <button class="btn wide">${rec ? L("Tabdeeli mehfooz karein","Save changes") : L("Delivery likhein","Save delivery")}</button>
-    ${rec ? "" : `<button class="btn wide blue" name="doprint" value="1" data-print="1">🖨️ ${L("Print + Save","Print + Save")}</button>`}</form>`);
+    ${rec ? "" : `<label class="chk"><input type="checkbox" id="dv_pr" name="doprint" ${printPref() ? "checked" : ""}>${L("Raseed print karein","Print receipt")}</label>`}
+    <button class="btn wide" id="dv_go">${rec ? L("Tabdeeli mehfooz karein","Save changes") : dvLabel(printPref())}</button></form>`);
 }
 function dvAfter(f){
   const n = $("#dv_after"); if (!n) return;
   const left = Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev) - num(f.paid.value));
   n.innerHTML = left > 0 ? `${L("Is ke baad baqi udhaar","Balance after this")}: <b class="bad">${rs(left)}</b>` : left < 0 ? `${L("Is ke baad advance","Advance after this")}: <b class="good">${rs(-left)}</b>` : `<b class="good">${L("Hisaab saaf ho jayega ✔","Account will be clear ✔")}</b>`;
 }
+function printPref(){ try { return localStorage.getItem("ps_print") !== "0"; } catch(_){ return true; } }
+function dvLabel(pr){ return pr ? "🖨️ " + L("Print + Save","Print + Save") : L("Delivery save karein","Save delivery"); }
 function fPay(id, rec){
   const c = cust(id), s = custStats()[id] || { bal:0 };
   sheet(`${rec ? L("Wasooli badlein","Edit payment") : L("Paisa wasool","Take payment")}: ${c.data.name}`, `<form class="f" data-form="pay" data-id="${id}" data-rid="${rec ? rec.id : ""}">
@@ -1078,7 +1080,7 @@ const forms = {
   deliver: async (o, f) => {
     if (o.doprint && navigator.bluetooth && !f.dataset.rid){
       try { toast(L("Printer se jur raha hai...","Connecting to printer...")); await connectPrinter(); }
-      catch(err){ btChar = null; throw new Error(printErr(err) + " " + L("(Delivery abhi save nahi hui.)","(Delivery not saved yet.)")); }
+      catch(err){ btChar = null; o.doprint = ""; o.printFail = printErr(err); }
     }
     const c = cust(f.dataset.id), qty = num(o.qty), rate = num(o.rate), old = f.dataset.rid ? S.recs.find(r => r.id === f.dataset.rid) : null;
     if (qty <= 0) throw new Error(L("Miqdaar likhein","Enter a quantity"));
@@ -1090,6 +1092,7 @@ const forms = {
     const nr = await api.add(S.shop.id, "delivery", o.day || today(), data); S.recs.push(nr);
     for (const od of of("order").filter(r => r.data.cust === c.id && r.data.status === "new")){ try { const dd = { ...od.data, status:"done", by:myName() }; await api.upd(od.id, dd); od.data = dd; } catch(_){} }
     closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
+    if (o.printFail) toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + o.printFail);
     if (o.doprint){ try { await printCV(slipDelivery(nr)); } catch(err){ toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message); } }
   },
   pay: async (o, f) => {
@@ -1129,7 +1132,8 @@ document.addEventListener("click", async ev => {
 });
 document.addEventListener("change", async ev => {
   const el = ev.target;
-  if (el.id === "rday"){ S.rday = el.value || today(); render(); return; } if (el.dataset && el.dataset.act === "mod"){ try { await acts.mod(el); } catch(err){ el.checked = !el.checked; toast(err.message || String(err)); } }
+  if (el.id === "rday"){ S.rday = el.value || today(); render(); return; }
+  if (el.id === "dv_pr"){ try { localStorage.setItem("ps_print", el.checked ? "1" : "0"); } catch(_){} const b = $("#dv_go"); if (b) b.textContent = dvLabel(el.checked); return; } if (el.dataset && el.dataset.act === "mod"){ try { await acts.mod(el); } catch(err){ el.checked = !el.checked; toast(err.message || String(err)); } }
 });
 document.addEventListener("submit", async ev => {
   const f = ev.target.closest("form[data-form]"); if (!f) return; ev.preventDefault(); if (busy) return;
