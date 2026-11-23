@@ -108,6 +108,8 @@ input[type=checkbox]{width:30px;height:30px;accent-color:var(--accent);flex:none
 .logo svg{width:36px;height:36px}
 .login h1{margin:0;font-size:26px;font-weight:800;text-wrap:balance}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
+.slipwrap{background:#cbd5e1;border-radius:12px;padding:14px;display:flex;justify-content:center}
+.slipwrap img{width:100%;max-width:340px;background:#fff;box-shadow:0 2px 10px #0003;image-rendering:auto}
 .billbox{background:var(--soft);border:1px solid var(--soft-line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .billbox .bl{display:flex;justify-content:space-between;gap:10px;font-size:18px}
 .billbox .total{margin-top:2px}
@@ -774,6 +776,13 @@ async function printCV(cv){
   try { await connectPrinter(); await send(new Uint8Array([0x1b, 0x40])); for (const s of toRaster(cv)) await send(s); await send(new Uint8Array([0x1b, 0x64, 5])); toast(L("Print ho gaya ✔","Printed ✔")); }
   catch(err){ btChar = null; throw new Error(printErr(err)); }
 }
+function showSlip(cv, title, printed, note){
+  S.slipCv = cv;
+  sheet(title, `${note ? `<p class="bad" style="margin:0 0 10px;font-weight:700">${e(note)}</p>` : printed ? `<p class="good" style="margin:0 0 10px;font-weight:700">✔ ${L("Save aur print ho gaya","Saved and printed")}</p>` : ""}
+    <div class="slipwrap"><img alt="${L("Raseed","Receipt")}" src="${cv.toDataURL("image/png")}"></div>
+    <div class="f" style="margin-top:14px"><button class="btn wide" data-act="slipPrint">🖨️ ${printed || note ? L("Dobara print","Print again") : L("Print","Print")}</button>
+    <button class="btn wide ghost" data-act="close">${L("Band karein","Close")}</button></div>`);
+}
 function printSlip(id){ return printCV(slipStatement(id)); }
 
 function fPick(mode){
@@ -1039,8 +1048,9 @@ const acts = {
   clearPin: async el => { if (el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka? Dobara dabayein","Sure? Tap again"); return; } await api.clearPin(el.dataset.id); render(); toast(L("Malik ka PIN hat gaya","Owner PIN cleared")); },
   newShop: fNewShop, newCust: () => fCust(null), newExp: () => fExp(null), newProd: fProd, newSale: fSale, newWorker: fWorker, pick: () => fPick("deliver"),
   cust: el => sCust(el.dataset.id), editCust: el => fCust(cust(el.dataset.id)),
-  deliver: el => fDeliver(el.dataset.id, null, el.dataset.q), pay: el => fPay(el.dataset.id), print: el => printSlip(el.dataset.id),
-  printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (r) return printCV(slipDelivery(r)); },
+  deliver: el => fDeliver(el.dataset.id, null, el.dataset.q), pay: el => fPay(el.dataset.id), print: el => { const c = cust(el.dataset.id); showSlip(slipStatement(el.dataset.id), L("Parchi","Statement") + ": " + (c ? c.data.name : "")); },
+  printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (!r) return; const c = cust(r.data.cust); showSlip(slipDelivery(r), L("Raseed","Receipt") + ": " + (c ? c.data.name : "")); },
+  slipPrint: async () => { if (S.slipCv) await printCV(S.slipCv); },
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.max(0, Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev))); dvAfter(f); },
   billpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); dvAfter(f); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
@@ -1105,8 +1115,10 @@ const forms = {
     const nr = await api.add(S.shop.id, "delivery", o.day || today(), data); S.recs.push(nr);
     for (const od of of("order").filter(r => r.data.cust === c.id && r.data.status === "new")){ try { const dd = { ...od.data, status:"done", by:myName() }; await api.upd(od.id, dd); od.data = dd; } catch(_){} }
     closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
-    if (o.printFail) toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + o.printFail);
-    if (o.doprint){ try { await printCV(slipDelivery(nr)); } catch(err){ toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message); } }
+    const cv = slipDelivery(nr); let note = "";
+    if (o.printFail) note = L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + o.printFail;
+    if (o.doprint){ try { await printCV(cv); } catch(err){ note = L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message; } }
+    showSlip(cv, L("Raseed","Receipt") + ": " + c.data.name, o.doprint && !note, note);
   },
   pay: async (o, f) => {
     if (num(o.amount) <= 0) throw new Error(L("Raqam likhein","Enter an amount"));
