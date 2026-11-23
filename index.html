@@ -536,6 +536,9 @@ function vToday(){
   }
   return `<div class="mute" style="font-weight:700">${nice(t)}${!fl ? " · " + L("sirf mera kaam","my work only") : ""}</div>
   ${supply() ? ordersCard() : ""}
+  ${fl && !S.bkLater && bkInfo().due ? `<div class="card f" style="border:2px solid var(--warn)"><h2>💾 ${L("Backup ka waqt ho gaya","Time for a backup")}</h2>
+    <p class="mute" style="margin:0">${bkInfo().last ? L("Aakhri backup","Last backup") + " " + bkInfo().days + " " + L("din pehle liya tha.","days ago.") : L("Abhi tak koi backup nahi liya.","No backup taken yet.")}</p>
+    <div class="acts"><button class="btn" data-act="backup">💾 ${L("Abhi backup lein","Back up now")}</button><button class="btn ghost" data-act="bkLater">${L("Baad mein","Later")}</button></div></div>` : ""}
   ${top ? `<div class="card"><div class="stats">${top}</div></div>` : ""}
   ${low ? `<div class="card"><div class="stats">${low}</div></div>` : ""}
   ${supply() ? `<button class="btn wide" data-act="pick">+ ${L("Nayi delivery","New delivery")}</button>${routeCard}
@@ -944,8 +947,15 @@ function staffHtml(){
   return `${S.workers.map(w => `<div class="row"><div class="g"><b>${e(w.name)}</b><small>${e(w.email)}</small></div><span class="pill ${w.active ? "good" : "bad"}">${w.active ? L("Chalu","On") : L("Band","Off")}</span><button class="btn sm ghost" data-act="wActive" data-id="${w.id}">${w.active ? L("Band karein","Turn off") : L("Chalu karein","Turn on")}</button></div>`).join("") || `<p class="mute">${L("Abhi koi ladka nahi banaya.","No staff added yet.")}</p>`}
     <button class="btn wide" data-act="newWorker" style="margin-top:12px">+ ${L("Naye ladkay ka login banayein","Add staff login")}</button>`;
 }
+function bkInfo(){
+  const s = (setting() || { data:{} }).data, every = s.bkEvery || "w", last = s.bkLast || "";
+  const gap = { d:1, w:7, m:30 }[every] || 7, days = last ? Math.floor((new Date(today()) - new Date(last)) / 864e5) : -1;
+  return { every, last, days, due: days < 0 || days >= gap };
+}
 function backupHtml(){
-  return `<p class="mute" style="margin:0">${L("Hafte mein ek dafa yeh file utaar kar WhatsApp ya Google Drive mein rakh lein.","Once a week, download this file and keep it in WhatsApp or Google Drive.")}</p>
+  const b = bkInfo(), F = [["d",L("Rozana","Daily")],["w",L("Har hafte","Weekly")],["m",L("Har mahine","Monthly")]];
+  return `<div><label>${L("Backup ki yaad-dehani","Backup reminder")}</label><div class="seg">${F.map(x => `<button type="button" class="${b.every === x[0] ? "on" : ""}" data-act="bkfreq" data-v="${x[0]}">${x[1]}</button>`).join("")}</div></div>
+    <p class="mute" style="margin:0">${b.last ? L("Aakhri backup","Last backup") + ": <b>" + nice(b.last) + "</b>" + (b.days > 0 ? ` (${b.days} ${L("din pehle","days ago")})` : ` (${L("aaj","today")})`) : L("Abhi tak koi backup nahi liya.","No backup taken yet.")}<br>${L("File utaar kar WhatsApp ya Google Drive mein rakh lein.","Keep the file in WhatsApp or Google Drive.")}</p>
     <button class="btn wide" data-act="backup">${L("Poora backup utaarein","Download full backup")}</button>
     ${supply() ? `<button class="btn wide ghost" data-act="csv">${L("Udhaar ki list (Excel) utaarein","Download credit list (Excel)")}</button>` : ""}`;
 }
@@ -1040,7 +1050,10 @@ const acts = {
   backup: () => {
     const name = "backup-" + S.shop.name.replace(/[^a-z0-9]+/gi, "-") + "-" + today() + ".json";
     download(name, JSON.stringify({ app:"Paani Supply Hisaab", date:new Date().toISOString(), shop:S.shop, staff:S.workers.map(w => ({ name:w.name, email:w.email, active:w.active })), records:S.recs.filter(r => r.kind !== "setting") }, null, 1), "application/json");
+    saveSetting({ bkLast:today() }).then(() => { S.bkLater = false; if ($("#sheet").innerHTML) acts.moreBackup(); else render(); }).catch(() => {});
   },
+  bkfreq: async el => { await saveSetting({ bkEvery:el.dataset.v }); acts.moreBackup(); toast(L("Mehfooz ho gaya","Saved")); },
+  bkLater: () => { S.bkLater = true; render(); },
   csv: () => {
     const st = custStats(), rows = [["Naam","Phone","Pata","Kaam","Rate","Baqaya (udhaar)","Botal us ke paas","Security"]];
     of("customer").slice().sort((a, b) => a.data.name.localeCompare(b.data.name)).forEach(c => { const s = st[c.id] || { bal:0, held:0 }; rows.push([c.data.name, c.data.phone, c.data.addr, c.data.type === "tank" ? "Tanki" : "Botal", c.data.rate, Math.round(s.bal), c.data.type === "bottle" ? s.held : "", c.data.deposit || 0]); });
