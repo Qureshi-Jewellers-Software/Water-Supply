@@ -188,12 +188,14 @@ function seedDemo(){
     ["c6","Usman Sahab","03009998887","Gali 2, Makan 20","bottle",130]
   ];
   cu.forEach(c => demo.recs.push({id:c[0], shop_id:"s1", kind:"customer", day:d(30), data:{name:c[1],phone:c[2],addr:c[3],type:c[4],rate:c[5],deposit:c[4]==="bottle"?1000:0, days:c[4]==="bottle"?[0,1,2,3,4,5,6]:[]}, created_by:"o1"}));
+  demo.recs.find(r => r.id === "c1").data.tok = "demoHajiAslamLink0001";
   const del = (day,c,type,qty,ret,rate,paid,by) => R("delivery",day,{cust:c,type,qty,ret,rate,amount:qty*rate,paid,by});
   del(d(3),"c1","bottle",2,0,120,240,"Imran"); del(d(3),"c2","bottle",5,0,110,0,"Imran"); del(d(3),"c4","tank",1000,0,2.5,2500,"Bilal");
   del(d(2),"c3","bottle",1,0,120,0,"Imran"); del(d(2),"c5","tank",400,0,2.5,0,"Bilal"); del(d(2),"c6","bottle",2,0,130,260,"Imran");
   del(d(1),"c1","bottle",2,2,120,0,"Imran"); del(d(1),"c2","bottle",5,5,110,550,"Imran"); del(d(1),"c4","tank",1000,0,2.5,0,"Bilal");
   del(d(0),"c3","bottle",1,1,120,120,"Imran"); del(d(0),"c5","tank",400,0,2.5,1000,"Bilal"); del(d(0),"c2","bottle",4,5,110,0,"Imran");
   R("payment",d(1),{cust:"c5",amount:500,by:"Rashid"}); R("handover",d(1),{by:"Imran",amount:800}); R("handover",d(1),{by:"Bilal",amount:2500}); R("setting",d(30),{bottles:120});
+  demo.recs.push({id:uid(), shop_id:"s1", kind:"order", day:d(0), data:{cust:"c6", qty:3, note:"Shaam se pehle", status:"new", at:new Date(Date.now() - 40*60000).toISOString()}, created_by:null});
   R("expense",d(3),{cat:"Petrol",amount:1500,mod:"tank",note:""}); R("expense",d(1),{cat:"Petrol",amount:1200,mod:"bottle",note:""});
   R("expense",d(2),{cat:"Bijli",amount:3000,mod:"plant",note:""}); R("expense",d(0),{cat:"Petrol",amount:1000,mod:"tank",note:""});
   R("plant",d(1),{t:"prod",litres:3200,bottles:60}); R("plant",d(0),{t:"prod",litres:2800,bottles:52});
@@ -297,6 +299,30 @@ const api = {
     }
     return out;
   },
+  async portal(tok){
+    if (DEMO){
+      const c = demo.recs.find(r => r.kind === "customer" && r.data.tok === tok && !r.deleted_at); if (!c) return null;
+      const s = demo.shops.find(x => x.id === c.shop_id); let bal = 0, held = 0;
+      demo.recs.filter(r => !r.deleted_at && r.data.cust === c.id).forEach(r => { if (r.kind === "delivery"){ bal += num(r.data.amount) - num(r.data.paid); if (r.data.type === "bottle") held += num(r.data.qty) - num(r.data.ret); } else if (r.kind === "payment") bal -= num(r.data.amount); });
+      const orders = demo.recs.filter(r => r.kind === "order" && !r.deleted_at && r.data.cust === c.id && r.data.status === "new").map(r => ({ qty:r.data.qty, at:r.data.at, note:r.data.note }));
+      return { shop:s.name, phone:s.phone, name:c.data.name, type:c.data.type || "bottle", rate:c.data.rate, bal, held, orders };
+    }
+    const r = await sb.rpc("cust_portal", { tok }); if (r.error) throw r.error; return r.data;
+  },
+  async placeOrder(tok, qty, note){
+    if (DEMO){
+      const c = demo.recs.find(r => r.kind === "customer" && r.data.tok === tok); if (!c) return { ok:false, err:"link" };
+      if (demo.recs.filter(r => r.kind === "order" && r.data.cust === c.id && r.data.status === "new" && !r.deleted_at).length >= 3) return { ok:false, err:"many" };
+      demo.recs.push({ id:uid(), shop_id:c.shop_id, kind:"order", day:today(), data:{ cust:c.id, qty, note, status:"new", at:new Date().toISOString() }, created_by:null });
+      return { ok:true };
+    }
+    const r = await sb.rpc("cust_order", { tok, qty, note }); if (r.error) throw r.error; return r.data;
+  },
+  async openOrders(shopId){
+    if (DEMO) return demo.recs.filter(r => r.shop_id === shopId && r.kind === "order" && !r.deleted_at && r.data.status === "new").map(r => ({ ...r }));
+    const r = await sb.from("records").select("*").eq("shop_id", shopId).eq("kind", "order").eq("data->>status", "new").is("deleted_at", null).order("created_at");
+    if (r.error) throw r.error; return r.data;
+  },
   async restore(id){
     if (DEMO){ const x = demo.recs.find(r => r.id === id); if (x) x.deleted_at = null; return; }
     const r = await sb.rpc("restore_record", { rec: id }); if (r.error) throw r.error;
@@ -399,7 +425,8 @@ function vLogin(){
       <button class="btn wide" data-act="demo" data-v="malik@demo.pk">${L("Malik ban kar dekhein (teeno kaam)","View as owner (all three)")}</button>
       <button class="btn wide ghost" data-act="demo" data-v="saaf@demo.pk">${L("Sirf botal wala malik","Bottle-only owner")}</button>
       <button class="btn wide ghost" data-act="demo" data-v="imran@demo.pk">${L("Delivery wala ladka","Delivery staff")}</button>
-      <button class="btn wide ghost" data-act="demo" data-v="admin@demo.pk">Admin</button></div>`
+      <button class="btn wide ghost" data-act="demo" data-v="admin@demo.pk">Admin</button>
+      <a class="btn wide ghost" href="?o=demoHajiAslamLink0001">${L("Grahak ka order page","Customer order page")}</a></div>`
     : `<form class="card f" data-form="login">
       <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="username" required></div>
       <div><label for="lg_p">Password</label><input id="lg_p" name="pw" type="password" autocomplete="current-password" required></div>
@@ -438,6 +465,7 @@ function describe(r, cm){
   if (r.kind === "sale") return `${L("Counter bikri","Counter sale")} ${rs(d.amount)}`;
   if (r.kind === "plant") return d.t === "maint" ? `${d.item} ${L("badla","changed")}` : `${L("Pani bana","Production")} ${d.litres} L`;
   if (r.kind === "customer") return `${L("Grahak","Customer")}: ${d.name}`;
+  if (r.kind === "order") return `${c} · ${L("order","order")} ${d.qty}`;
   return r.kind;
 }
 async function sDeleted(shopId){
@@ -501,10 +529,25 @@ function vToday(){
     low += st("light", "🏪 " + L("Counter bikri","Counter sales"), rs(sum(sl, r => r.data.amount)), "tab", "plant");
   }
   return `<div class="mute" style="font-weight:700">${nice(t)}${!fl ? " · " + L("sirf mera kaam","my work only") : ""}</div>
+  ${supply() ? ordersCard() : ""}
   ${top ? `<div class="card"><div class="stats">${top}</div></div>` : ""}
   ${low ? `<div class="card"><div class="stats">${low}</div></div>` : ""}
   ${supply() ? `<button class="btn wide" data-act="pick">+ ${L("Nayi delivery","New delivery")}</button>${routeCard}
   <div class="card" id="todayList"><h2>${fl ? L("Aaj ki deliveries","Today's deliveries") : L("Meri aaj ki deliveries","My deliveries today")}</h2>${rows || `<p class="mute">${L("Aaj abhi koi delivery nahi likhi.","No deliveries recorded today.")}</p>`}</div>` : ""}`;
+}
+function ago(iso){
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (m < 1) return L("abhi","just now");
+  if (m < 60) return m + " " + L("minute pehle","min ago");
+  const hh = Math.round(m / 60); if (hh < 24) return hh + " " + L("ghante pehle","hours ago");
+  return Math.round(hh / 24) + " " + L("din pehle","days ago");
+}
+function ordersCard(){
+  const os = of("order").filter(r => r.data.status === "new");
+  if (!os.length) return "";
+  return `<div class="card" id="ordersCard" style="border:2px solid var(--accent)"><h2>📲 ${L("Naye order","New orders")} · ${os.length}</h2>${os.map(r => { const c = cust(r.data.cust), tank = c && c.data.type === "tank";
+    return `<div class="row"><div class="g"><b>${e(c ? c.data.name : "?")}</b><small>${num(r.data.qty).toLocaleString()} ${tank ? L("litre","litres") : L("botal","bottles")} · ${ago(r.data.at || r.created_at)}${c && c.data.addr ? " · " + e(c.data.addr) : ""}${r.data.note ? `<br>"${e(r.data.note)}"` : ""}</small></div>
+    <button class="btn sm" data-act="deliver" data-id="${r.data.cust}" data-q="${num(r.data.qty)}">${L("Delivery","Deliver")}</button><button class="btn sm danger" data-act="ocancel" data-id="${r.id}" aria-label="Cancel">✕</button></div>`; }).join("")}</div>`;
 }
 function recBtns(r){
   const fl = full();
@@ -577,6 +620,7 @@ function sCust(id){
       <button class="btn sm ghost" data-act="pay" data-id="${id}">${L("Paisa wasool","Take payment")}</button>
       ${c.data.phone ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waLink(c, s)}">${L("Baqaya WhatsApp","WhatsApp balance")}</a><a class="btn sm wa" target="_blank" rel="noopener" href="${billLink(c, s)}">${L("Mahine ka bill","Monthly bill")}</a>` : ""}
       <button class="btn sm blue" data-act="print" data-id="${id}">${L("Parchi","Print slip")}</button>
+      <button class="btn sm ghost" data-act="olink" data-id="${id}">📲 ${L("Order link","Order link")}</button>
       <button class="btn sm ghost" data-act="editCust" data-id="${id}">${L("Badlein","Edit")}</button>
     </div>
     <div class="card"><h2>${L("Purana hisaab","History")}</h2>${rows || `<p class="mute">${L("Abhi koi entry nahi.","No entries yet.")}</p>`}</div>`);
@@ -717,11 +761,11 @@ function plusMenu(){
   if (fl && m.plant){ x += b("newProd", "", "💧", L("Aaj ka pani","Production")); x += b("newSale", "", "🏪", L("Counter bikri","Counter sale")); }
   sheet(L("Kya karna hai?","What do you want to do?"), `<div class="boxes">${x}</div><button class="btn wide ghost" data-act="close" style="margin-top:14px">${L("Band karein","Close")}</button>`);
 }
-function fDeliver(id, rec){
+function fDeliver(id, rec, preQ){
   const c = cust(id); if (!c) return; const tank = c.data.type === "tank", d = rec ? rec.data : null;
   const rate = d ? d.rate : c.data.rate;
   sheet(`${rec ? L("Delivery badlein","Edit delivery") : L("Delivery","Delivery")}: ${c.data.name}`, `<form class="f" data-form="deliver" data-id="${id}" data-rid="${rec ? rec.id : ""}">
-    <div class="two"><div><label for="dv_q">${tank ? L("Kitne litre","Litres") : L("Botal di","Bottles given")}</label><input id="dv_q" name="qty" inputmode="decimal" required value="${d ? e(d.qty) : tank ? "" : "1"}"></div>
+    <div class="two"><div><label for="dv_q">${tank ? L("Kitne litre","Litres") : L("Botal di","Bottles given")}</label><input id="dv_q" name="qty" inputmode="decimal" required value="${d ? e(d.qty) : preQ ? e(preQ) : tank ? "" : "1"}"></div>
     ${tank ? `<div><label for="dv_r">${L("Rate fi litre","Rate per litre")}</label><input id="dv_r" name="rate" inputmode="decimal" value="${e(rate)}" required></div>`
            : `<div><label for="dv_ret">${L("Khali wapas li","Empties taken back")}</label><input id="dv_ret" name="ret" inputmode="numeric" value="${d ? e(d.ret) : "0"}"></div>`}</div>
     ${tank ? "" : `<div><label for="dv_r">${L("Rate fi botal","Rate per bottle")}</label><input id="dv_r" name="rate" inputmode="decimal" value="${e(rate)}" required></div>`}
@@ -888,7 +932,23 @@ function closeSheet(){ if ($("#sheet").innerHTML) lockUntil = Date.now() + 800; 
 async function reloadRecs(){ S.recs = await api.records(S.shop.id); }
 const acts = {
   tab: el => { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
-  lang: () => { LANG = LANG === "en" ? "ru" : "en"; try { localStorage.setItem("ps_lang", LANG); } catch(_){} closeSheet(); render(); },
+  lang: () => { LANG = LANG === "en" ? "ru" : "en"; try { localStorage.setItem("ps_lang", LANG); } catch(_){} closeSheet(); if (ORDER_TOK) renderPortal(); else render(); },
+  olink: async el => {
+    const c = cust(el.dataset.id); if (!c) return;
+    if (!c.data.tok){ const a = new Uint8Array(18); crypto.getRandomValues(a); const tok = Array.from(a, b => "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 56]).join(""); const d = { ...c.data, tok }; await api.upd(c.id, d); c.data = d; }
+    const url = location.origin + location.pathname + "?o=" + c.data.tok;
+    const msg = [`*${S.shop.name}*`, `${L("Assalam o alaikum","Hello")} ${c.data.name},`, L("Ab aap is link se ghar baithe paani mangwa sakte hain, aur apna hisaab bhi dekh sakte hain:","You can now order water from home with this link, and see your account:"), url, L("Is link ko sambhal kar rakhein, yeh sirf aap ke liye hai.","Keep this link safe, it is only for you.")].join("\n");
+    sheet(`📲 ${L("Order link","Order link")}: ${c.data.name}`, `<div class="f"><p class="mute" style="margin:0">${L("Yeh link grahak ko bhejein. Woh is se botal ya tanki mangwa sakega, aur order aap ki app mein \"Aaj\" par aa jayega.","Send this link to the customer. They can order with it, and the order shows on your Today page.")}</p>
+      <input id="olurl" readonly value="${e(url)}" aria-label="Link">
+      ${c.data.phone ? `<a class="btn wide wa" target="_blank" rel="noopener" href="https://wa.me/${waNum(c.data.phone)}?text=${encodeURIComponent(msg)}">${L("WhatsApp par bhejein","Send on WhatsApp")}</a>` : ""}
+      <button class="btn wide ghost" data-act="olcopy">${L("Link copy karein","Copy link")}</button></div>`);
+  },
+  olcopy: async () => { const i = $("#olurl"); try { await navigator.clipboard.writeText(i.value); toast(L("Link copy ho gaya","Link copied")); } catch(_){ i.select(); toast(L("Link chun liya, ab copy karein","Link selected, copy it now")); } },
+  ocancel: async el => {
+    if (el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka?","Sure?"); setTimeout(() => { if (el.isConnected){ el.dataset.sure = ""; el.textContent = "✕"; } }, 3000); return; }
+    const r = S.recs.find(x => x.id === el.dataset.id); if (!r) return; const d = { ...r.data, status:"cancel", by:myName() }; await api.upd(r.id, d); r.data = d; render(); toast(L("Order hata diya","Order removed"));
+  },
+  pq: el => { const i = $("#pq_q"), st = num(i.dataset.step) || 1; i.value = Math.max(st, num(i.value) + (el.dataset.v === "+" ? st : -st)); },
   logout: async () => { await api.logout(); Object.assign(S, { me:null, shop:null, recs:[], admin:null, workers:[] }); closeSheet(); render(); },
   demo: async el => { await api.login(el.dataset.v); await boot(); },
   close: closeSheet,
@@ -916,7 +976,7 @@ const acts = {
   clearPin: async el => { if (el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka? Dobara dabayein","Sure? Tap again"); return; } await api.clearPin(el.dataset.id); render(); toast(L("Malik ka PIN hat gaya","Owner PIN cleared")); },
   newShop: fNewShop, newCust: () => fCust(null), newExp: () => fExp(null), newProd: fProd, newSale: fSale, newWorker: fWorker, pick: () => fPick("deliver"),
   cust: el => sCust(el.dataset.id), editCust: el => fCust(cust(el.dataset.id)),
-  deliver: el => fDeliver(el.dataset.id), pay: el => fPay(el.dataset.id), print: el => printSlip(el.dataset.id),
+  deliver: el => fDeliver(el.dataset.id, null, el.dataset.q), pay: el => fPay(el.dataset.id), print: el => printSlip(el.dataset.id),
   printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (r) return printCV(slipDelivery(r)); },
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
@@ -971,7 +1031,9 @@ const forms = {
     if (pd > most && f.dataset.ok !== String(pd)){ f.dataset.ok = String(pd); throw new Error(L(`Naqd ${rs(pd)} likha hai, jab ke bill aur purana baqaya mila kar ${rs(most)} banta hai. Ghalti hai to theek karein, sahi hai to dobara dabayein.`, `Cash ${rs(pd)} is more than bill plus old balance (${rs(most)}). Fix it, or tap again if correct.`)); }
     const data = { cust:c.id, type:c.data.type, qty, ret:num(o.ret), rate, amount:qty * rate, paid:pd, by: old ? old.data.by : myName() };
     if (old){ data.edited = { by:myName(), at:new Date().toISOString() }; const day = o.day || old.day; await api.upd(old.id, data, day); old.data = data; old.day = day; closeSheet(); render(); toast(L("Tabdeeli mehfooz ho gayi","Changes saved")); return; }
-    const nr = await api.add(S.shop.id, "delivery", o.day || today(), data); S.recs.push(nr); closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
+    const nr = await api.add(S.shop.id, "delivery", o.day || today(), data); S.recs.push(nr);
+    for (const od of of("order").filter(r => r.data.cust === c.id && r.data.status === "new")){ try { const dd = { ...od.data, status:"done", by:myName() }; await api.upd(od.id, dd); od.data = dd; } catch(_){} }
+    closeSheet(); render(); toast(L("Delivery likh di","Delivery saved"));
     if (o.doprint){ try { await printCV(slipDelivery(nr)); } catch(err){ toast(L("Delivery save ho gayi, lekin print nahi hua: ","Saved, but not printed: ") + err.message); } }
   },
   pay: async (o, f) => {
@@ -1028,8 +1090,74 @@ document.addEventListener("input", ev => {
   else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate")) $("#dv_amt").textContent = rs(num(el.form.qty.value) * num(el.form.rate.value));
 });
 
+/* ================= grahak ka order page (?o=...) ================= */
+const ORDER_TOK = (() => { try { return new URLSearchParams(location.search).get("o") || ""; } catch(_){ return ""; } })();
+const P = { data:null, err:"", sent:false, loading:true };
+async function loadPortal(){
+  P.loading = true; renderPortal();
+  try { P.data = await api.portal(ORDER_TOK); P.err = P.data ? "" : "link"; } catch(_){ P.err = "net"; }
+  P.loading = false; renderPortal();
+}
+function renderPortal(){
+  const app = $("#app"), banner = DEMO ? `<div class="demo">${L("DEMO: yeh sirf namoona hai, data save nahi hota","DEMO: sample only, nothing is saved")}</div>` : "";
+  const langBtn = `<button class="hbtn" data-act="lang">${LANG === "en" ? "Roman" : "English"}</button>`;
+  const d = P.data;
+  if (P.loading && !d){ app.innerHTML = banner + `<main><p class="mute">${L("Khul raha hai...","Loading...")}</p></main>`; return; }
+  if (!d){
+    app.innerHTML = banner + `<header><h1>Paani Supply</h1>${langBtn}</header><main><div class="card"><h2>${P.err === "net" ? L("Internet ka masla","Connection problem") : L("Yeh link nahi chal raha","This link does not work")}</h2><p class="mute">${P.err === "net" ? L("Internet check kar ke page dobara kholein.","Check your internet and open the page again.") : L("Apni paani supply wale se naya link mangwa lein.","Please ask your water supplier for a new link.")}</p></div></main>`;
+    return;
+  }
+  const tank = d.type === "tank", step = tank ? 100 : 1, def = tank ? 500 : 1;
+  const pend = (d.orders || []).map(o => `<div class="row"><div class="g"><b>${num(o.qty).toLocaleString()} ${tank ? L("litre","litres") : L("botal","bottles")}</b><small>${L("Bheja","Sent")} ${ago(o.at)}${o.note ? " · " + e(o.note) : ""}</small></div><span class="pill warn">${L("Raaste mein","On the way")}</span></div>`).join("");
+  app.innerHTML = banner + `<header><h1>${e(d.shop)}<small>${L("Paani mangwayein","Order water")}</small></h1>${langBtn}</header>
+  <main>
+    <div class="card"><h2>${L("Assalam o alaikum","Hello")}, ${e(d.name)}</h2>
+      <div class="tiles"><div class="tile"><b>${rs(d.bal)}</b><span>${num(d.bal) > 0 ? L("Aap ka baqaya","Your balance due") : L("Baqaya","Balance")}</span></div>
+      ${tank ? `<div class="tile"><b>${rs(d.rate)}</b><span>${L("Rate fi litre","Rate per litre")}</span></div>` : `<div class="tile"><b>${num(d.held)}</b><span>${L("Hamari botalen aap ke paas","Our bottles with you")}</span></div>`}</div></div>
+    ${P.sent ? `<div class="card" style="border:2px solid var(--good)"><h2 class="good">✔ ${L("Order chala gaya","Order sent")}</h2><p class="mute" style="margin:0">${L("Shukriya! Hamara banda jald pohanch jayega.","Thank you! We will deliver soon.")}</p></div>` : ""}
+    <form class="card f" data-form="porder">
+      <h2>${tank ? L("Kitne litre chahiye?","How many litres?") : L("Kitni botal chahiye?","How many bottles?")}</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button type="button" class="btn ghost" data-act="pq" data-v="-" aria-label="Kam" style="width:64px">−</button>
+        <input id="pq_q" name="qty" inputmode="numeric" value="${def}" data-step="${step}" aria-label="Qty" style="text-align:center;font-size:30px;font-weight:800">
+        <button type="button" class="btn ghost" data-act="pq" data-v="+" aria-label="Zyada" style="width:64px">+</button>
+      </div>
+      ${!tank && num(d.rate) ? `<p class="mute" style="margin:0">${L("Rate","Rate")}: ${rs(d.rate)} ${L("fi botal","per bottle")}</p>` : ""}
+      <div><label for="pq_n">${L("Kuch kehna ho (zaroori nahi)","Note (optional)")}</label><input id="pq_n" name="note" maxlength="200" placeholder="${L("Maslan: shaam 5 baje ke baad","e.g. after 5 pm")}"></div>
+      <button class="btn wide">📲 ${L("Order bhejein","Send order")}</button>
+    </form>
+    ${pend ? `<div class="card"><h2>${L("Aap ke order","Your orders")}</h2>${pend}</div>` : ""}
+    ${d.phone ? `<div class="card f"><h2>${L("Rabta","Contact")}</h2><div style="font-size:24px;font-weight:800">${e(d.phone)}</div>
+      <div class="acts"><a class="btn sm ghost" href="tel:${e(d.phone)}">📞 ${L("Call","Call")}</a><a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/${waNum(d.phone)}">WhatsApp</a></div></div>` : ""}
+  </main>`;
+}
+forms.porder = async o => {
+  const q = num(o.qty); if (q <= 0) throw new Error(L("Tadaad likhein","Enter a quantity"));
+  const r = await api.placeOrder(ORDER_TOK, q, String(o.note || "").trim());
+  if (!r || !r.ok){
+    const m = { many:L("Aap ke 3 order pehle se raaste mein hain. Thora intezar karein.","You already have 3 open orders. Please wait."), qty:L("Tadaad theek likhein","Enter a valid quantity") }[r && r.err] || L("Yeh link nahi chal raha. Naya link mangwa lein.","This link does not work. Ask for a new one.");
+    throw new Error(m);
+  }
+  P.sent = true; await loadPortal(); window.scrollTo(0, 0);
+};
+
+/* malik / ladka: naye order har 45 second baad dekho */
+let orderPoll = null;
+function startOrderPoll(){
+  if (orderPoll || DEMO) return;
+  orderPoll = setInterval(async () => {
+    if (!S.shop || !supply() || document.visibilityState !== "visible") return;
+    try {
+      const fresh = await api.openOrders(S.shop.id), had = new Set(of("order").map(r => r.id));
+      S.recs = S.recs.filter(r => !(r.kind === "order" && r.data.status === "new")).concat(fresh);
+      const neu = fresh.filter(r => !had.has(r.id));
+      if (neu.length){ const c = cust(neu[0].data.cust); toast("📲 " + L("Naya order","New order") + ": " + (c ? c.data.name : "") + " · " + num(neu[0].data.qty)); if (!$("#sheet").innerHTML && S.tab === "aaj") render(); }
+    } catch(_){}
+  }, 45000);
+}
+
 if (DEMO) seedDemo();
-boot();
+if (ORDER_TOK) loadPortal(); else { boot(); startOrderPoll(); }
 </script>
 </body>
 </html>

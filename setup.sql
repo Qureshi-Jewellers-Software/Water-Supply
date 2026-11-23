@@ -151,3 +151,12 @@ begin
 end $$;
 revoke execute on function public.clear_pin(uuid) from anon, public;
 grant execute on function public.clear_pin(uuid) to authenticated;
+
+-- =====================================================
+-- UPDATE 4: grahak ka order link (bina login)
+-- =====================================================
+alter policy rec_upd on public.records
+  using (shop_id = my_shop() and (my_role() = 'owner' or kind in ('customer','order')))
+  with check (shop_id = my_shop());
+create index if not exists records_cust_tok on public.records ((data->>'tok')) where kind = 'customer';
+-- cust_portal(tok) aur cust_order(tok, qty, note): poori definition Supabase migration "customer_order_links" mein hai
