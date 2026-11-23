@@ -108,6 +108,9 @@ input[type=checkbox]{width:30px;height:30px;accent-color:var(--accent);flex:none
 .logo svg{width:36px;height:36px}
 .login h1{margin:0;font-size:26px;font-weight:800;text-wrap:balance}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
+.billbox{background:var(--soft);border:1px solid var(--soft-line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.billbox .bl{display:flex;justify-content:space-between;gap:10px;font-size:18px}
+.billbox .total{margin-top:2px}
 .total{display:flex;justify-content:space-between;font-weight:800;font-size:24px;padding-top:10px;border-top:2px solid var(--line);margin-top:6px}
 #print{display:none}
 @media print{
@@ -776,17 +779,30 @@ function plusMenu(){
 function fDeliver(id, rec, preQ){
   const c = cust(id); if (!c) return; const tank = c.data.type === "tank", d = rec ? rec.data : null;
   const rate = d ? d.rate : c.data.rate;
-  sheet(`${rec ? L("Delivery badlein","Edit delivery") : L("Delivery","Delivery")}: ${c.data.name}`, `<form class="f" data-form="deliver" data-id="${id}" data-rid="${rec ? rec.id : ""}">
+  const prev = Math.round((custStats()[id] || { bal:0 }).bal - (d ? num(d.amount) - num(d.paid) : 0));
+  const bill0 = d ? num(d.amount) : tank ? 0 : num(rate);
+  sheet(`${rec ? L("Delivery badlein","Edit delivery") : L("Delivery","Delivery")}: ${c.data.name}`, `<form class="f" data-form="deliver" data-id="${id}" data-rid="${rec ? rec.id : ""}" data-prev="${prev}">
     <div class="two"><div><label for="dv_q">${tank ? L("Kitne litre","Litres") : L("Botal di","Bottles given")}</label><input id="dv_q" name="qty" inputmode="decimal" required value="${d ? e(d.qty) : preQ ? e(preQ) : tank ? "" : "1"}"></div>
     ${tank ? `<div><label for="dv_r">${L("Rate fi litre","Rate per litre")}</label><input id="dv_r" name="rate" inputmode="decimal" value="${e(rate)}" required></div>`
            : `<div><label for="dv_ret">${L("Khali wapas li","Empties taken back")}</label><input id="dv_ret" name="ret" inputmode="numeric" value="${d ? e(d.ret) : "0"}"></div>`}</div>
     ${tank ? "" : `<div><label for="dv_r">${L("Rate fi botal","Rate per bottle")}</label><input id="dv_r" name="rate" inputmode="decimal" value="${e(rate)}" required></div>`}
-    <div class="total"><span>${L("Kul raqam","Total")}</span><span id="dv_amt">${rs(d ? d.amount : tank ? 0 : num(rate))}</span></div>
-    <div><label for="dv_p">${L("Abhi naqd mila (baqi udhaar)","Cash received now (rest is credit)")}</label><input id="dv_p" name="paid" inputmode="decimal" value="${d ? e(d.paid) : "0"}"></div>
-    <button type="button" class="btn ghost sm" data-act="fullpaid" style="align-self:flex-start">${L("Poora naqd mila","Paid in full")}</button>
+    <div class="billbox">
+      <div class="bl"><span>${L("Is delivery ka bill","This delivery")}</span><b id="dv_amt">${rs(bill0)}</b></div>
+      ${prev ? `<div class="bl"><span>${prev > 0 ? L("Purana udhaar","Previous balance") : L("Pehle se jama (advance)","Advance paid earlier")}</span><b class="${prev > 0 ? "bad" : "good"}">${prev > 0 ? "+ " : "− "}${rs(Math.abs(prev))}</b></div>` : ""}
+      <div class="total"><span>${L("Kul dena hai","Total to pay")}</span><span id="dv_tot">${rs(Math.max(0, bill0 + prev))}</span></div>
+    </div>
+    <div><label for="dv_p">${L("Abhi naqd mila (baqi udhaar mein jayega)","Cash received now (rest goes to credit)")}</label><input id="dv_p" name="paid" inputmode="decimal" value="${d ? e(d.paid) : "0"}"></div>
+    <div class="acts"><button type="button" class="btn ghost sm" data-act="fullpaid">${L("Poora naqd mila","Paid in full")}</button>
+    ${prev > 0 ? `<button type="button" class="btn ghost sm" data-act="billpaid">${L("Sirf is bill ke paise","Only this bill")}</button>` : ""}</div>
+    <p class="mute" id="dv_after" style="margin:0"></p>
     <div><label for="dv_d">${L("Tareekh","Date")}</label><input id="dv_d" name="day" type="date" value="${rec ? rec.day : today()}"></div>
     <button class="btn wide">${rec ? L("Tabdeeli mehfooz karein","Save changes") : L("Delivery likhein","Save delivery")}</button>
     ${rec ? "" : `<button class="btn wide blue" name="doprint" value="1" data-print="1">🖨️ ${L("Print + Save","Print + Save")}</button>`}</form>`);
+}
+function dvAfter(f){
+  const n = $("#dv_after"); if (!n) return;
+  const left = Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev) - num(f.paid.value));
+  n.innerHTML = left > 0 ? `${L("Is ke baad baqi udhaar","Balance after this")}: <b class="bad">${rs(left)}</b>` : left < 0 ? `${L("Is ke baad advance","Advance after this")}: <b class="good">${rs(-left)}</b>` : `<b class="good">${L("Hisaab saaf ho jayega ✔","Account will be clear ✔")}</b>`;
 }
 function fPay(id, rec){
   const c = cust(id), s = custStats()[id] || { bal:0 };
@@ -991,7 +1007,8 @@ const acts = {
   cust: el => sCust(el.dataset.id), editCust: el => fCust(cust(el.dataset.id)),
   deliver: el => fDeliver(el.dataset.id, null, el.dataset.q), pay: el => fPay(el.dataset.id), print: el => printSlip(el.dataset.id),
   printDel: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (r) return printCV(slipDelivery(r)); },
-  fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); },
+  fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.max(0, Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev))); dvAfter(f); },
+  billpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); dvAfter(f); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
   shopActive: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id);
     if (s.active && el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka band karein? Dobara dabayein","Really turn off? Tap again"); setTimeout(() => { if (el.isConnected) render(); }, 4000); return; }
@@ -1100,7 +1117,7 @@ document.addEventListener("input", ev => {
   const el = ev.target;
   if (el.id === "q"){ S.q = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vCust(); const cl = tmp.querySelector("#custList"); if (cl && $("#custList")) $("#custList").innerHTML = cl.innerHTML; }
   else if (el.id === "pq") $("#pickList").innerHTML = pickRows(el.value);
-  else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate")) $("#dv_amt").textContent = rs(num(el.form.qty.value) * num(el.form.rate.value));
+  else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate" || el.name === "paid")){ const b = num(el.form.qty.value) * num(el.form.rate.value); $("#dv_amt").textContent = rs(b); $("#dv_tot").textContent = rs(Math.max(0, b + num(el.form.dataset.prev))); dvAfter(el.form); }
 });
 
 /* ================= grahak ka order page (?o=...) ================= */
