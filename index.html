@@ -199,7 +199,7 @@ function seedDemo(){
   del(d(2),"c3","bottle",1,0,120,0,"Imran"); del(d(2),"c5","tank",400,0,2.5,0,"Bilal"); del(d(2),"c6","bottle",2,0,130,260,"Imran");
   del(d(1),"c1","bottle",2,2,120,0,"Imran"); del(d(1),"c2","bottle",5,5,110,550,"Imran"); del(d(1),"c4","tank",1000,0,2.5,0,"Bilal");
   del(d(0),"c3","bottle",1,1,120,120,"Imran"); del(d(0),"c5","tank",400,0,2.5,1000,"Bilal"); del(d(0),"c2","bottle",4,5,110,0,"Imran");
-  R("payment",d(1),{cust:"c5",amount:500,by:"Rashid"}); R("handover",d(1),{by:"Imran",amount:800}); R("handover",d(1),{by:"Bilal",amount:2500}); R("setting",d(30),{bottles:120, addr:"Shop No. 14, Main Road", addr2:"Naval Colony, Karachi"});
+  R("payment",d(1),{cust:"c5",amount:500,by:"Rashid"}); R("handover",d(1),{by:"Imran",amount:800}); R("handover",d(1),{by:"Bilal",amount:2500}); R("setting",d(30),{bottles:120, addr:"Shop No. 14, Main Road", addr2:"Rehmat Colony, Karachi"});
   demo.recs.push({id:uid(), shop_id:"s1", kind:"order", day:d(0), data:{cust:"c6", qty:3, note:"Shaam se pehle", status:"new", at:new Date(Date.now() - 40*60000).toISOString()}, created_by:null});
   R("expense",d(3),{cat:"Petrol",amount:1500,mod:"tank",note:""}); R("expense",d(1),{cat:"Petrol",amount:1200,mod:"bottle",note:""});
   R("expense",d(2),{cat:"Bijli",amount:3000,mod:"plant",note:""}); R("expense",d(0),{cat:"Petrol",amount:1000,mod:"tank",note:""});
@@ -1023,7 +1023,7 @@ const acts = {
       <p class="mute" style="margin:0">${L("Yeh raseed ke bilkul upar chhapta hai.","This prints at the very top of the receipt.")}</p>
       <div><label for="si_p">${L("Mobile number","Mobile number")}</label><input id="si_p" name="phone" inputmode="tel" value="${e(si.phone)}"></div>
       <div><label for="si_a">${L("Pata (pehli line)","Address (line 1)")}</label><input id="si_a" name="addr" maxlength="32" value="${e(si.addr)}" placeholder="Shop No. 14, Main Road"></div>
-      <div><label for="si_b">${L("Pata (doosri line, zaroori nahi)","Address (line 2, optional)")}</label><input id="si_b" name="addr2" maxlength="32" value="${e(si.addr2)}" placeholder="Naval Colony, Karachi"></div>
+      <div><label for="si_b">${L("Pata (doosri line, zaroori nahi)","Address (line 2, optional)")}</label><input id="si_b" name="addr2" maxlength="32" value="${e(si.addr2)}" placeholder="Rehmat Colony, Karachi"></div>
       <button class="btn wide">${L("Mehfooz karein","Save")}</button></form>`); },
   morePin: () => sheet(L("Malik PIN","Owner PIN"), `<div class="f">${pinHtml()}</div>`),
   go: el => {
