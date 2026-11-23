@@ -199,7 +199,7 @@ function seedDemo(){
   del(d(2),"c3","bottle",1,0,120,0,"Imran"); del(d(2),"c5","tank",400,0,2.5,0,"Bilal"); del(d(2),"c6","bottle",2,0,130,260,"Imran");
   del(d(1),"c1","bottle",2,2,120,0,"Imran"); del(d(1),"c2","bottle",5,5,110,550,"Imran"); del(d(1),"c4","tank",1000,0,2.5,0,"Bilal");
   del(d(0),"c3","bottle",1,1,120,120,"Imran"); del(d(0),"c5","tank",400,0,2.5,1000,"Bilal"); del(d(0),"c2","bottle",4,5,110,0,"Imran");
-  R("payment",d(1),{cust:"c5",amount:500,by:"Rashid"}); R("handover",d(1),{by:"Imran",amount:800}); R("handover",d(1),{by:"Bilal",amount:2500}); R("setting",d(30),{bottles:120});
+  R("payment",d(1),{cust:"c5",amount:500,by:"Rashid"}); R("handover",d(1),{by:"Imran",amount:800}); R("handover",d(1),{by:"Bilal",amount:2500}); R("setting",d(30),{bottles:120, addr:"Dukaan No. 5, Main Bazar", addr2:"Gulberg, Lahore"});
   demo.recs.push({id:uid(), shop_id:"s1", kind:"order", day:d(0), data:{cust:"c6", qty:3, note:"Shaam se pehle", status:"new", at:new Date(Date.now() - 40*60000).toISOString()}, created_by:null});
   R("expense",d(3),{cat:"Petrol",amount:1500,mod:"tank",note:""}); R("expense",d(1),{cat:"Petrol",amount:1200,mod:"bottle",note:""});
   R("expense",d(2),{cat:"Bijli",amount:3000,mod:"plant",note:""}); R("expense",d(0),{cat:"Petrol",amount:1000,mod:"tank",note:""});
@@ -672,10 +672,17 @@ function drawLines(L){
 }
 const DASH = { t:"--------------------------------", c:1 };
 const pn = n => String(Math.round(num(n)));
+function shopInfo(){
+  const s = (setting() || { data:{} }).data;
+  return { phone:(s.phone || S.shop.phone || "").trim(), addr:(s.addr || "").trim(), addr2:(s.addr2 || "").trim() };
+}
 function head(L, c){
-  const dt = new Date();
+  const dt = new Date(), si = shopInfo();
   L.push({ t:S.shop.name, c:1, b:1, big:1 });
-  if (S.shop.phone) L.push({ t:S.shop.phone, c:1 });
+  if (si.addr) L.push({ t:si.addr, c:1 });
+  if (si.addr2) L.push({ t:si.addr2, c:1 });
+  if (si.phone) L.push({ t:"Ph: " + si.phone, c:1, b:1 });
+  L.push({ t:"================================", c:1 });
   L.push({ t:nice(today()) + " " + pad(dt.getHours()) + ":" + pad(dt.getMinutes()), c:1 });
   L.push({ t:c.data.name, b:1, big:1 });
   if (c.data.addr) L.push({ t:c.data.addr });
@@ -745,6 +752,14 @@ async function connectPrinter(){
   throw new Error(L("Printer ka write port nahi mila","Printer write port not found"));
 }
 async function send(d){ for (let i = 0; i < d.length; i += 100){ const ch = d.slice(i, i + 100); if (btChar.properties.writeWithoutResponse) await btChar.writeValueWithoutResponse(ch); else await btChar.writeValue(ch); await sleep(25); } }
+function printErr(err){
+  const n = err && err.name, m = String((err && err.message) || err || "");
+  if (n === "NotFoundError") return L("Printer chuna nahi gaya. Dobara dabayein aur list mein printer chunein.","No printer chosen. Tap again and choose your printer.");
+  if (n === "SecurityError") return L("Phone ne printer ki list kholne se roka. Print ka button dobara dabayein.","The phone blocked the printer list. Tap print again.");
+  if (/write port/i.test(m)) return L("Yeh printer Bluetooth Low Energy (BLE) nahi chalata. Is printer ke liye RawBT wala tareeqa chahiye.","This printer does not support Bluetooth Low Energy. It needs the RawBT method.");
+  if (n === "NetworkError" || /gatt|disconnect|connect/i.test(m)) return L("Printer se jur nahi saka. Printer on karein, phone ke qareeb rakhein, phir dobara.","Could not connect. Turn the printer on, keep it close, and try again.");
+  return L("Print nahi hua: ","Print failed: ") + m;
+}
 async function printCV(cv){
   if (!navigator.bluetooth){
     /* Bluetooth na ho (maslan iPhone / computer): bill ki tasveer aam print se */
@@ -754,7 +769,7 @@ async function printCV(cv){
   }
   toast(L("Printer se jur raha hai...","Connecting to printer..."));
   try { await connectPrinter(); await send(new Uint8Array([0x1b, 0x40])); for (const s of toRaster(cv)) await send(s); await send(new Uint8Array([0x1b, 0x64, 5])); toast(L("Print ho gaya ✔","Printed ✔")); }
-  catch(err){ btChar = null; throw new Error(err && err.name === "NotFoundError" ? L("Printer chuna nahi gaya","No printer chosen") : L("Print nahi hua: ","Print failed: ") + (err.message || err)); }
+  catch(err){ btChar = null; throw new Error(printErr(err)); }
 }
 function printSlip(id){ return printCV(slipStatement(id)); }
 
@@ -937,6 +952,7 @@ function vMore(){
   const b = (a, ico, t) => `<button class="mbox" data-act="${a}"><span>${ico}</span>${t}</button>`;
   let x = "";
   if (fl){ x += b("moreStaff", "👷", L("Ladkay","Staff")); x += b("moreBackup", "💾", "Backup"); }
+  if (fl) x += b("moreShop", "🏪", L("Dukaan / Raseed","Shop / Receipt"));
   if (isOwner()) x += b("morePin", "🔒", L("Malik PIN","Owner PIN"));
   if (fl && supply()) x += b("goDue", "📒", L("Udhaar khata","Credit ledger"));
   if (fl) x += b("tab\" data-v=\"his", "📊", L("Hisaab","Accounts"));
@@ -991,6 +1007,12 @@ const acts = {
   plus: plusMenu, payPick: () => fPick("pay"),
   moreStaff: () => sheet(L("Delivery walay ladkay","Delivery staff"), staffHtml()),
   moreBackup: () => sheet(L("Backup (data ki hifazat)","Backup (keep your data safe)"), `<div class="f">${backupHtml()}</div>`),
+  moreShop: () => { const si = shopInfo(); sheet(L("Raseed par dukaan ki maloomat","Shop details on receipt"), `<form class="f" data-form="shopinfo">
+      <p class="mute" style="margin:0">${L("Yeh raseed ke bilkul upar chhapta hai.","This prints at the very top of the receipt.")}</p>
+      <div><label for="si_p">${L("Mobile number","Mobile number")}</label><input id="si_p" name="phone" inputmode="tel" value="${e(si.phone)}"></div>
+      <div><label for="si_a">${L("Pata (pehli line)","Address (line 1)")}</label><input id="si_a" name="addr" maxlength="32" value="${e(si.addr)}" placeholder="Dukaan No. 5, Main Bazar"></div>
+      <div><label for="si_b">${L("Pata (doosri line, zaroori nahi)","Address (line 2, optional)")}</label><input id="si_b" name="addr2" maxlength="32" value="${e(si.addr2)}" placeholder="Lahore"></div>
+      <button class="btn wide">${L("Mehfooz karein","Save")}</button></form>`); },
   morePin: () => sheet(L("Malik PIN","Owner PIN"), `<div class="f">${pinHtml()}</div>`),
   go: el => {
     const v = el.dataset.v, jump = id => setTimeout(() => { const n = document.getElementById(id); if (n) n.scrollIntoView({ behavior:"smooth", block:"start" }); }, 60);
@@ -1054,6 +1076,10 @@ const forms = {
     toast(L("Mehfooz ho gaya","Saved"));
   },
   deliver: async (o, f) => {
+    if (o.doprint && navigator.bluetooth && !f.dataset.rid){
+      try { toast(L("Printer se jur raha hai...","Connecting to printer...")); await connectPrinter(); }
+      catch(err){ btChar = null; throw new Error(printErr(err) + " " + L("(Delivery abhi save nahi hui.)","(Delivery not saved yet.)")); }
+    }
     const c = cust(f.dataset.id), qty = num(o.qty), rate = num(o.rate), old = f.dataset.rid ? S.recs.find(r => r.id === f.dataset.rid) : null;
     if (qty <= 0) throw new Error(L("Miqdaar likhein","Enter a quantity"));
     const prev = (custStats()[c.id] || { bal:0 }).bal - (old ? num(old.data.amount) - num(old.data.paid) : 0);
@@ -1083,6 +1109,7 @@ const forms = {
   },
   hand: async (o, f) => { if (num(o.amount) <= 0) throw new Error(L("Raqam likhein","Enter an amount")); S.recs.push(await api.add(S.shop.id, "handover", o.day || today(), { by:f.dataset.v, amount:num(o.amount) })); closeSheet(); render(); toast(L("Cash jama likh diya","Cash-in saved")); },
   stock: async o => { await saveSetting({ bottles:num(o.bottles) }); closeSheet(); render(); toast(L("Mehfooz ho gaya","Saved")); },
+  shopinfo: async o => { await saveSetting({ phone:o.phone.trim(), addr:o.addr.trim(), addr2:o.addr2.trim() }); closeSheet(); render(); toast(L("Mehfooz ho gaya","Saved")); },
   pin: async (o, f) => {
     if (!/^[0-9]{4,8}$/.test(o.pin)) throw new Error(L("PIN sirf hindson mein likhein (kam az kam 4)","PIN must be digits only (at least 4)"));
     if (f.dataset.mode === "set"){ await saveSetting({ pin:o.pin }); S.unlocked = true; closeSheet(); render(); toast(L("PIN lag gaya","PIN set")); }
