@@ -1206,8 +1206,16 @@ document.addEventListener("submit", async ev => {
   try { await forms[f.dataset.form](o, f); } catch(err){ toast(err.message || String(err)); }
   busy = false; if (btn && btn.isConnected){ btn.disabled = false; btn.textContent = old; }
 });
+/* har lafz ka pehla harf capital (naam, pata, note waghera) */
+function capOk(el){
+  if (!el || el.tagName !== "INPUT" || el.readOnly) return false;
+  const t = (el.getAttribute("type") || "text").toLowerCase(), im = (el.getAttribute("inputmode") || "").toLowerCase();
+  return t === "text" && !["numeric","decimal","tel","email","url"].includes(im) && el.id !== "olurl";
+}
+document.addEventListener("focusin", ev => { if (capOk(ev.target)) ev.target.setAttribute("autocapitalize", "words"); });
 document.addEventListener("input", ev => {
   const el = ev.target;
+  if (capOk(el)){ const v = el.value, nv = v.replace(/(^|\s)(\p{Ll})/gu, (m, s, c) => s + c.toUpperCase()); if (nv !== v){ const pos = el.selectionStart; el.value = nv; try { el.setSelectionRange(pos, pos); } catch(_){} } }
   if (el.id === "q"){ S.q = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vCust(); const cl = tmp.querySelector("#custList"); if (cl && $("#custList")) $("#custList").innerHTML = cl.innerHTML; }
   else if (el.id === "pq") $("#pickList").innerHTML = pickRows(el.value);
   else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate" || el.name === "paid")){ const b = num(el.form.qty.value) * num(el.form.rate.value); $("#dv_amt").textContent = rs(b); $("#dv_tot").textContent = rs(Math.max(0, b + num(el.form.dataset.prev))); dvAfter(el.form); }
