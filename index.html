@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Paani Supply Hisaab</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6db5">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Paani Supply">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -1345,6 +1351,8 @@ window.addEventListener("popstate", () => {
   if (now - lastBack < 2000){ history.back(); return; }
   lastBack = now; toast(L("Band karne ke liye dobara Back dabayein","Press Back again to exit")); armBack();
 });
+
+if ("serviceWorker" in navigator && location.protocol === "https:"){ try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch(_){} }
 
 if (DEMO) seedDemo();
 if (ORDER_TOK) loadPortal(); else { boot(); startOrderPoll(); }
