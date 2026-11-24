@@ -1,14 +1,10 @@
 [
   {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
+    "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.qureshi_jewellers_software.twa",
-      "sha256_cert_fingerprints": [
-        "95:A3:75:FF:B8:59:E2:0B:63:7A:2D:4D:6A:0E:B6:95:01:6B:D3:36:66:08:23:0B:F6:DC:A3:14:3B:09:49:28"
-      ]
+      "sha256_cert_fingerprints": ["08:3D:D8:60:5D:49:77:61:89:C2:7D:09:4F:CC:1B:EB:FD:45:E3:C9:4F:B0:C6:3F:4F:DC:E6:02:0A:13:50:9E"]
     }
   }
 ]
