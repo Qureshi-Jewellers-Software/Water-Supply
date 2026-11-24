@@ -105,6 +105,22 @@ input[type=checkbox]{width:30px;height:30px;accent-color:var(--accent);flex:none
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{background:var(--card);border:2px solid var(--line);border-radius:99px;padding:10px 16px;font-weight:700;font-size:17px;cursor:pointer;color:var(--mute)}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ham{background:transparent;border:0;color:inherit;width:44px;height:44px;margin:-4px 0 -4px -8px;padding:8px;border-radius:10px;cursor:pointer;flex:none}
+.ham svg{width:28px;height:28px;display:block}
+.drw{position:fixed;inset:0;z-index:20;background:rgba(4,20,26,.55);display:flex}
+.drw .pn{background:var(--card);width:82%;max-width:320px;height:100%;overflow:auto;display:flex;flex-direction:column;animation:drIn .2s ease-out}
+@keyframes drIn{from{transform:translateX(-100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.drw .pn{animation:none}}
+.drw .hd{background:var(--accent);color:var(--accent-ink);padding:20px 18px 16px}
+.drw .hd b{display:block;font-size:20px;font-weight:800}
+.drw .hd small{display:block;opacity:.85;font-size:14px;overflow-wrap:anywhere}
+.drw .it{display:flex;align-items:center;gap:14px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:15px 18px;font-size:18px;font-weight:700;color:var(--ink);text-align:left;cursor:pointer}
+.drw .it span{width:28px;text-align:center;font-size:21px}
+.drw .it.out{color:var(--bad);margin-top:auto;border-top:1px solid var(--line);border-bottom:0}
+.pw{position:relative}
+.pw input{padding-right:58px}
+.pw .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:0;width:46px;height:46px;color:var(--mute);cursor:pointer;padding:10px}
+.pw .eye svg{width:26px;height:26px;display:block}
 .sheet{position:fixed;inset:0;z-index:20;background:rgba(4,20,26,.55);display:flex;align-items:flex-end;justify-content:center}
 .sheet .box{background:var(--card);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px 26px}
 .sheet .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -173,6 +189,9 @@ const IC = {
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',
   route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.600-7 10-7 10 7 10 7-3.600 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.600 5.100A10 10 0 0 1 12 5c6.400 0 10 7 10 7a17 17 0 0 1-3.200 4.100M6.600 6.600C3.800 8.400 2 12 2 12s3.600 7 10 7a9.700 9.700 0 0 0 5.400-1.600"/><path d="M9.900 9.900a3 3 0 0 0 4.200 4.200"/></svg>',
   more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.500"/><circle cx="12" cy="12" r="1.500"/><circle cx="19" cy="12" r="1.500"/></svg>'
 };
 
@@ -413,12 +432,12 @@ function render(){
   if (!S.me){ app.innerHTML = banner + vLogin(); return; }
   const langBtn = `<button class="hbtn" data-act="lang">${LANG === "en" ? "Roman" : "English"}</button>`;
   if (S.me.role === "admin"){
-    app.innerHTML = banner + `<header><h1>${L("Admin Panel","Admin Panel")}<small>${e(S.me.email)}</small></h1>${langBtn}<button class="hbtn" data-act="logout">${L("Bahar","Logout")}</button></header><main>${vAdmin()}</main>`;
+    app.innerHTML = banner + `<header><button class="ham" data-act="drawer" aria-label="Menu">${IC.menu}</button><h1>${L("Admin Panel","Admin Panel")}<small>${e(S.me.email)}</small></h1>${langBtn}<button class="hbtn" data-act="logout">${L("Bahar","Logout")}</button></header><main>${vAdmin()}</main>`;
     return;
   }
   const blocked = !S.shop || !S.shop.active || !S.me.active || S.me.role === "none";
   if (blocked){
-    app.innerHTML = banner + `<header><h1>${e(S.shop ? S.shop.name : "Paani Supply")}</h1>${langBtn}<button class="hbtn" data-act="logout">${L("Bahar","Logout")}</button></header>
+    app.innerHTML = banner + `<header><button class="ham" data-act="drawer" aria-label="Menu">${IC.menu}</button><h1>${e(S.shop ? S.shop.name : "Paani Supply")}</h1>${langBtn}<button class="hbtn" data-act="logout">${L("Bahar","Logout")}</button></header>
     <main><div class="card"><h2>${L("Account band hai","Account is off")}</h2><p class="mute">${L("Yeh account abhi chalu nahi. Admin se rabta karein.","This account is not active. Please contact the admin.")}</p></div></main>`;
     return;
   }
@@ -430,7 +449,7 @@ function render(){
   tabs.push(["more",L("Aur","More"),IC.more]);
   if (!tabs.some(t => t[0] === S.tab)) S.tab = "aaj";
   const view = {aaj:vToday, cust:vCust, plant:vPlant, exp:vExp, his:vHisaab, route:vRoute, more:vMore}[S.tab]();
-  app.innerHTML = banner + `<header><h1>${e(S.shop.name)}<small>${e(S.me.name || S.me.email)} · ${isOwner() ? L("Malik","Owner") : L("Delivery wala","Delivery staff")}</small></h1>${isOwner() && pin() ? `<button class="hbtn" data-act="${S.unlocked ? "pinLock" : "pinUnlock"}">${S.unlocked ? "Lock" : L("Malik PIN","Owner PIN")}</button>` : ""}${langBtn}</header>
+  app.innerHTML = banner + `<header><button class="ham" data-act="drawer" aria-label="Menu">${IC.menu}</button><h1>${e(S.shop.name)}<small>${e(S.me.name || S.me.email)} · ${isOwner() ? L("Malik","Owner") : L("Delivery wala","Delivery staff")}</small></h1>${isOwner() && pin() ? `<button class="hbtn" data-act="${S.unlocked ? "pinLock" : "pinUnlock"}">${S.unlocked ? "Lock" : L("Malik PIN","Owner PIN")}</button>` : ""}${langBtn}</header>
   <main>${view}</main>
   <nav><div class="in">${navHtml(tabs)}</div></nav>`;
 }
@@ -452,7 +471,7 @@ function vLogin(){
       <a class="btn wide ghost" href="?o=demoHajiAslamLink0001">${L("Grahak ka order page","Customer order page")}</a></div>`
     : `<form class="card f" data-form="login">
       <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="username" required></div>
-      <div><label for="lg_p">Password</label><input id="lg_p" name="pw" type="password" autocomplete="current-password" required></div>
+      <div><label for="lg_p">Password</label><div class="pw"><input id="lg_p" name="pw" type="text" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required><button type="button" class="eye" data-act="eye" data-v="lg_p" aria-label="${L("Chhupayein","Hide")}">${IC.eye}</button></div></div>
       <button class="btn wide">${L("Andar jayein","Log in")}</button></form>`}
     <button class="btn ghost sm" data-act="lang" style="align-self:flex-start">${LANG === "en" ? "Roman Urdu" : "English"}</button>
   </div>`;
@@ -1021,7 +1040,7 @@ function fStock(){ sheet(L("Kul botalen","Total bottles"), `<form class="f" data
   <button class="btn wide">${L("Mehfooz karein","Save")}</button></form>`); }
 function fPin(mode){ sheet(mode === "set" ? L("Malik PIN lagayein","Set owner PIN") : L("Malik PIN likhein","Enter owner PIN"), `<form class="f" data-form="pin" data-mode="${mode}">
   ${mode === "set" ? `<p class="mute" style="margin:0">${L("PIN ke baghair hisaab, munafa, kharcha aur udhaar ka kul nazar nahi ayega. PIN yaad rakhein.","Without the PIN, accounts, profit, expenses and total credit stay hidden. Remember your PIN.")}</p>` : ""}
-  <div><label for="pn_p">PIN (4 ${L("hindse","digits")})</label><input id="pn_p" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autocomplete="off"></div>
+  <div><label for="pn_p">PIN (4 ${L("hindse","digits")})</label><div class="pw"><input id="pn_p" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required autocomplete="off"><button type="button" class="eye" data-act="eye" data-v="pn_p" aria-label="${L("Dikhayein","Show")}">${IC.eyeOff}</button></div></div>
   <button class="btn wide">${mode === "set" ? L("PIN lagayein","Set PIN") : L("Kholein","Unlock")}</button></form>`); }
 
 /* ---------- Aur ---------- */
@@ -1066,6 +1085,26 @@ function fWorker(){ sheet(L("Naya ladka","New staff"), `<form class="f" data-for
   <div><label for="wk_p">${L("Password (kam az kam 6 harf)","Password (min 6 characters)")}</label><input id="wk_p" name="pw" minlength="6" required autocomplete="off"></div>
   <button class="btn wide">${L("Login banayein","Create login")}</button></form>`); }
 
+/* ================= side menu (3 lakeerein) ================= */
+function drawer(){
+  const it = (a, ico, t, v, c) => `<button class="it${c ? " " + c : ""}" data-act="dr" data-a="${a}"${v ? ` data-v="${v}"` : ""}><span>${ico}</span>${t}</button>`;
+  let x = "", who = S.me.email, ttl = "Paani Supply";
+  if (S.me.role === "admin"){ ttl = "Admin Panel"; x += it("adminBackup", "💾", L("Sab ka backup","Backup all")); }
+  else if (S.shop && S.shop.active && S.me.active && S.me.role !== "none"){
+    ttl = S.shop.name; const fl = full();
+    x += it("tab", "🏠", L("Aaj","Today"), "aaj");
+    if (supply()) x += it("tab", "👥", L("Grahak","Customers"), "cust");
+    if (fl && supply()) x += it("goDue", "📒", L("Udhaar khata","Credit ledger"));
+    if (supply()) x += it("route", "🛣️", L("Aaj ka route","Today's route"));
+    if (fl && mods().plant) x += it("tab", "🏭", "Plant", "plant");
+    if (fl) x += it("tab", "💸", L("Kharcha","Expense"), "exp") + it("tab", "📊", L("Hisaab","Accounts"), "his");
+    if (fl) x += it("moreStaff", "👷", L("Ladkay","Staff")) + it("moreBackup", "💾", "Backup") + it("moreShop", "🏪", L("Dukaan / Raseed","Shop / Receipt"));
+    if (isOwner()) x += pin() ? (S.unlocked ? it("pinLock", "🔒", L("Lock karein","Lock")) : it("pinUnlock", "🔓", L("Malik PIN se kholein","Unlock with PIN"))) : it("morePin", "🔒", L("Malik PIN","Owner PIN"));
+  }
+  x += it("lang", "🌐", LANG === "en" ? "Roman Urdu" : "English");
+  $("#sheet").innerHTML = `<div class="drw" data-act="bg"><div class="pn" role="dialog" aria-label="Menu"><div class="hd"><b>${e(ttl)}</b><small>${e(S.me.name && S.me.role !== "admin" ? S.me.name + " · " + who : who)}</small></div>${x}${it("logout", "🚪", L("Logout","Log out"), "", "out")}</div></div>`;
+}
+
 /* ================= sheet ================= */
 function sheet(title, html){ $("#sheet").innerHTML = `<div class="sheet" data-act="bg"><div class="box" role="dialog" aria-label="${e(title)}"><div class="top"><h2>${e(title)}</h2><button class="x" data-act="close" aria-label="Close">✕</button></div>${html}</div></div>`; }
 let lockUntil = 0;
@@ -1095,6 +1134,11 @@ const acts = {
   logout: async () => { await api.logout(); Object.assign(S, { me:null, shop:null, recs:[], admin:null, workers:[] }); closeSheet(); render(); },
   demo: async el => { await api.login(el.dataset.v); await boot(); },
   close: closeSheet,
+  drawer: () => drawer(),
+  dr: async (el, ev) => { const a = el.dataset.a, v = el.dataset.v; $("#sheet").innerHTML = "";
+    if (a === "route"){ if (document.querySelector("nav [data-v=route]")){ S.tab = "route"; render(); window.scrollTo(0, 0); } else { S.tab = "aaj"; render(); acts.go({ dataset:{ v:"route" } }); } return; }
+    const fn = acts[a]; if (fn) await fn({ dataset:{ v } }, ev); },
+  eye: el => { const i = document.getElementById(el.dataset.v); if (!i) return; const show = i.type === "password"; i.type = show ? "text" : "password"; el.innerHTML = show ? IC.eye : IC.eyeOff; el.setAttribute("aria-label", show ? L("Chhupayein","Hide") : L("Dikhayein","Show")); i.focus(); },
   bg: (el, ev) => { if (ev.target === el) closeSheet(); },
   period: el => { S.period = el.dataset.v; render(); },
   noop: () => {},
