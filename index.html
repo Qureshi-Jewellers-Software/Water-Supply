@@ -1307,7 +1307,7 @@ document.addEventListener("submit", async ev => {
 function capOk(el){
   if (!el || el.tagName !== "INPUT" || el.readOnly) return false;
   const t = (el.getAttribute("type") || "text").toLowerCase(), im = (el.getAttribute("inputmode") || "").toLowerCase();
-  return t === "text" && !["numeric","decimal","tel","email","url"].includes(im) && el.id !== "olurl";
+  return t === "text" && !["numeric","decimal","tel","email","url"].includes(im) && el.id !== "olurl" && !["pw","pin","email"].includes(el.name) && !el.closest(".pw");
 }
 document.addEventListener("focusin", ev => { if (capOk(ev.target)) ev.target.setAttribute("autocapitalize", "words"); });
 document.addEventListener("input", ev => {
