@@ -539,6 +539,11 @@ function vToday(){
     if (m.bottle){ const held = of("customer").reduce((x, c) => x + (c.data.type === "bottle" ? ((stx[c.id] || {}).held || 0) : 0), 0); low += st("light", "🧴 " + L("Botal grahakon ke paas","Bottles with customers"), held, "go", "stock"); }
   }
   if (route.length) low += st("light", "🚚 " + L("Aaj ka route","Today's route"), `${route.length - left.length}/${route.length}`, "go", "route");
+  /* khali jagah na rahe: naye order, warna kul grahak */
+  if (supply() && ((low.match(/statbtn light/g) || []).length + (m.plant && fl ? 2 : 0)) % 2 === 1){
+    const no = of("order").filter(r => r.data.status === "new").length;
+    low += no ? st("light", "📲 " + L("Naye order","New orders"), no, "go", "orders") : st("light", "👥 " + L("Kul grahak","Customers"), of("customer").length, "tab", "cust");
+  }
   if (m.plant && fl){
     const pr = of("plant").filter(r => r.day === t && r.data.t === "prod"), sl = of("sale").filter(r => r.day === t);
     low += st("light", "💧 " + L("Aaj pani bana","Water produced"), sum(pr, r => r.data.litres).toLocaleString() + " L", "tab", "plant");
@@ -1072,6 +1077,7 @@ const acts = {
   morePin: () => sheet(L("Malik PIN","Owner PIN"), `<div class="f">${pinHtml()}</div>`),
   go: el => {
     const v = el.dataset.v, jump = id => setTimeout(() => { const n = document.getElementById(id); if (n) n.scrollIntoView({ behavior:"smooth", block:"start" }); }, 60);
+    if (v === "orders"){ jump("ordersCard"); return; }
     if (v === "route" && document.querySelector("nav [data-v=route]")){ S.tab = "route"; render(); window.scrollTo(0, 0); return; }
     if (v === "list"){ S.showList = true; render(); jump("todayList"); return; }
     if (v === "route"){ jump("routeCard"); return; }
