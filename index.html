@@ -688,7 +688,7 @@ function sCust(id){
       <button class="btn sm ghost" data-act="pay" data-id="${id}">${L("Paisa wasool","Take payment")}</button>
       ${c.data.phone ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waLink(c, s)}">${L("Baqaya WhatsApp","WhatsApp balance")}</a><a class="btn sm wa" target="_blank" rel="noopener" href="${billLink(c, s)}">${L("Mahine ka bill","Monthly bill")}</a>` : ""}
       <button class="btn sm blue" data-act="print" data-id="${id}">${L("Parchi","Print slip")}</button>
-      <button class="btn sm ghost" data-act="olink" data-id="${id}">📲 ${L("Order link","Order link")}</button>
+      ${ORDER_LINK_ON ? `<button class="btn sm ghost" data-act="olink" data-id="${id}">📲 ${L("Order link","Order link")}</button>` : ""}
       <button class="btn sm ghost" data-act="editCust" data-id="${id}">${L("Badlein","Edit")}</button>
     </div>
     <div class="card"><h2>${L("Purana hisaab","History")}</h2>${rows || `<p class="mute">${L("Abhi koi entry nahi.","No entries yet.")}</p>`}</div>`);
@@ -1104,6 +1104,9 @@ function drawer(){
   x += it("lang", "🌐", LANG === "en" ? "Roman Urdu" : "English");
   $("#sheet").innerHTML = `<div class="drw" data-act="bg"><div class="pn" role="dialog" aria-label="Menu"><div class="hd"><b>${e(ttl)}</b><small>${e(S.me.name && S.me.role !== "admin" ? S.me.name + " · " + who : who)}</small></div>${x}${it("logout", "🚪", L("Logout","Log out"), "", "out")}</div></div>`;
 }
+
+/* order link ka button: apna subdomain lagne tak band (link mein github naam aata hai) */
+const ORDER_LINK_ON = false;
 
 /* ================= sheet ================= */
 function sheet(title, html){ $("#sheet").innerHTML = `<div class="sheet" data-act="bg"><div class="box" role="dialog" aria-label="${e(title)}"><div class="top"><h2>${e(title)}</h2><button class="x" data-act="close" aria-label="Close">✕</button></div>${html}</div></div>`; }
