@@ -182,7 +182,7 @@ function seedDemo(){
   demo.shops = [
     {id:"s1", name:"Al-Madina Water", phone:"03001234567", modules:{bottle:true,tank:true,plant:true}, active:true},
     {id:"s2", name:"Saaf Paani Supply", phone:"03111222333", modules:{bottle:true,tank:false,plant:false}, active:true},
-    {id:"s3", name:"Bismillah Tanki Service", phone:"03214445556", modules:{bottle:false,tank:true,plant:false}, active:false}
+    {id:"s3", name:"Bismillah Suzuki Service", phone:"03214445556", modules:{bottle:false,tank:true,plant:false}, active:false}
   ];
   demo.profiles = [
     {id:"a", email:"admin@demo.pk", name:"Admin", role:"admin", shop_id:null, active:true},
@@ -216,6 +216,7 @@ function seedDemo(){
   R("plant",d(1),{t:"prod",litres:3200,bottles:60}); R("plant",d(0),{t:"prod",litres:2800,bottles:52});
   R("plant",d(75),{t:"maint",item:"Filter"}); R("plant",d(200),{t:"maint",item:"Membrane"});
   R("sale",d(1),{qty:18,amount:900,note:""}); R("sale",d(0),{qty:22,amount:1100,note:""});
+  R("load",d(1),{litres:1500,by:"Bilal",src:"plant"}); R("load",d(0),{litres:1000,by:"Bilal",src:"plant"});
 }
 
 const api = {
@@ -436,7 +437,7 @@ function navHtml(tabs){
 function vLogin(){
   return `<div class="login">
     <div class="logo">${IC.drop}</div>
-    <div><h1>Paani Supply Hisaab</h1><p class="mute">${L("Botal, tanki aur RO plant ka poora hisaab","Bottle, tanker and RO plant accounts in one place")}</p></div>
+    <div><h1>Paani Supply Hisaab</h1><p class="mute">${L("Botal, Suzuki aur RO plant ka poora hisaab","Bottle, Suzuki and RO plant accounts in one place")}</p></div>
     ${DEMO ? `<div class="card f"><h2>${L("Demo dekhein","Try the demo")}</h2>
       <button class="btn wide" data-act="demo" data-v="malik@demo.pk">${L("Malik ban kar dekhein (teeno kaam)","View as owner (all three)")}</button>
       <button class="btn wide ghost" data-act="demo" data-v="saaf@demo.pk">${L("Sirf botal wala malik","Bottle-only owner")}</button>
@@ -452,7 +453,7 @@ function vLogin(){
 }
 
 /* ---------- Admin ---------- */
-const MODN = () => ({ bottle:L("Botal supply","Bottle supply"), tank:L("Tanki supply","Tanker supply"), plant:L("RO plant","RO plant") });
+const MODN = () => ({ bottle:L("Botal supply","Bottle supply"), tank:L("Suzuki supply","Suzuki supply"), plant:L("RO plant","RO plant") });
 function vAdmin(){
   const a = S.admin || { shops:[], profiles:[] }, N = MODN();
   const cards = a.shops.map(s => {
@@ -481,6 +482,7 @@ function describe(r, cm){
   if (r.kind === "sale") return `${L("Counter bikri","Counter sale")} ${rs(d.amount)}`;
   if (r.kind === "plant") return d.t === "maint" ? `${d.item} ${L("badla","changed")}` : `${L("Pani bana","Production")} ${d.litres} L`;
   if (r.kind === "customer") return `${L("Grahak","Customer")}: ${d.name}`;
+  if (r.kind === "load") return `Suzuki bhari ${d.litres} L`;
   if (r.kind === "order") return `${c} · ${L("order","order")} ${d.qty}`;
   return r.kind;
 }
@@ -522,7 +524,8 @@ function vToday(){
     top += st("red", fl ? L("Aaj ka udhaar","Credit today") : L("Meri deliveries ka udhaar","Credit on mine"), rs(credit), "go", fl ? "due" : "list");
   }
   if (m.bottle){ top += st("", L("Botal di","Bottles given"), sum(bot, r => r.data.qty), "go", "list"); top += st("", L("Khali wapas","Empties back"), sum(bot, r => r.data.ret), "go", "list"); }
-  if (m.tank){ top += st("", L("Litre tanki supply","Litres supplied"), sum(tk, r => r.data.qty).toLocaleString(), "go", "list"); top += st("", L("Tanki chakkar","Tanker trips"), tk.length, "go", "list"); }
+  if (m.tank){ top += st("", L("Litre Suzuki supply","Litres by Suzuki"), sum(tk, r => r.data.qty).toLocaleString(), "go", "list"); top += st("", L("Suzuki chakkar","Suzuki trips"), tk.length, "go", "list");
+    const lz = loadStats(t); if (lz.loaded){ top += st("", "🚚 " + L("Suzuki mein bhara","Loaded in Suzuki"), lz.loaded.toLocaleString() + " L", m.plant && fl ? "tab" : "go", m.plant && fl ? "plant" : "list"); top += st(lz.left < 0 ? "red" : "", L("Suzuki mein bacha","Left in Suzuki"), lz.left.toLocaleString() + " L", "go", "list"); } }
   /* aaj ka route: jin grahakon ka aaj din hai aur abhi delivery nahi hui */
   const dow = new Date().getDay(), done = new Set(allToday.map(r => r.data.cust));
   const route = of("customer").filter(c => (c.data.days || []).includes(dow));
@@ -626,7 +629,7 @@ function vCust(){
   list.sort((a, b) => a.data.name.localeCompare(b.data.name));
   const rows = list.map(c => {
     const s = st[c.id] || { bal:0, held:0 };
-    return `<div class="row tap" data-act="cust" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || c.data.phone || "")}${c.data.type === "bottle" ? ` · ${s.held} ${L("botal us ke paas","bottles held")}` : ` · ${L("tanki","tanker")}`}</small></div>
+    return `<div class="row tap" data-act="cust" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || c.data.phone || "")}${c.data.type === "bottle" ? ` · ${s.held} ${L("botal us ke paas","bottles held")}` : ` · ${L("Suzuki","Suzuki")}`}</small></div>
     <div class="r ${s.bal > 0 ? "bad" : ""}">${s.bal > 0 ? rs(s.bal) : `<span class="pill good">${L("Saaf","Clear")}</span>`}</div></div>`;
   }).join("");
   return head + `<input id="q" type="search" placeholder="${L("Naam, phone ya gali se dhoondein","Search name, phone or street")}" value="${e(S.q)}" aria-label="Search">
@@ -636,7 +639,7 @@ function vCust(){
 const DAYS = () => [[1,L("Peer","Mon")],[2,L("Mangal","Tue")],[3,L("Budh","Wed")],[4,L("Jumerat","Thu")],[5,L("Juma","Fri")],[6,L("Hafta","Sat")],[0,L("Itwar","Sun")]];
 function fCust(c){
   const d = c ? c.data : { type: mods().bottle ? "bottle" : "tank" }, m = mods();
-  const typeSel = (m.bottle && m.tank) ? `<div><label for="cu_t">${L("Kaam","Type")}</label><select id="cu_t" name="type"><option value="bottle" ${d.type === "bottle" ? "selected" : ""}>${L("Botal (19L)","Bottle (19L)")}</option><option value="tank" ${d.type === "tank" ? "selected" : ""}>${L("Tanki (litre)","Tanker (litres)")}</option></select></div>` : `<input type="hidden" name="type" value="${m.bottle ? "bottle" : "tank"}">`;
+  const typeSel = (m.bottle && m.tank) ? `<div><label for="cu_t">${L("Kaam","Type")}</label><select id="cu_t" name="type"><option value="bottle" ${d.type === "bottle" ? "selected" : ""}>${L("Botal (19L)","Bottle (19L)")}</option><option value="tank" ${d.type === "tank" ? "selected" : ""}>${L("Suzuki (litre)","Suzuki (litres)")}</option></select></div>` : `<input type="hidden" name="type" value="${m.bottle ? "bottle" : "tank"}">`;
   sheet(c ? L("Grahak badlein","Edit customer") : L("Naya grahak","New customer"), `<form class="f" data-form="cust" data-id="${c ? c.id : ""}">
     <div><label for="cu_n">${L("Naam","Name")}</label><input id="cu_n" name="name" value="${e(d.name)}" required></div>
     <div><label for="cu_p">${L("Phone (WhatsApp)","Phone (WhatsApp)")}</label><input id="cu_p" name="phone" inputmode="tel" value="${e(d.phone)}"></div>
@@ -829,12 +832,13 @@ function pickRows(q){
   q = q.trim().toLowerCase();
   const l = of("customer").filter(c => !q || (c.data.name + " " + c.data.addr).toLowerCase().includes(q)).sort((a, b) => a.data.name.localeCompare(b.data.name));
   const act = S.pickMode === "pay" ? "pay" : "deliver";
-  return l.map(c => `<div class="row tap" data-act="${act}" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || "")}</small></div><span class="pill">${c.data.type === "tank" ? L("Tanki","Tanker") : L("Botal","Bottle")}</span></div>`).join("") || `<p class="mute">${L("Koi grahak nahi. Pehle Grahak mein naya grahak banayein.","No customers. Add one in Customers first.")}</p>`;
+  return l.map(c => `<div class="row tap" data-act="${act}" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || "")}</small></div><span class="pill">${c.data.type === "tank" ? L("Suzuki","Suzuki") : L("Botal","Bottle")}</span></div>`).join("") || `<p class="mute">${L("Koi grahak nahi. Pehle Grahak mein naya grahak banayein.","No customers. Add one in Customers first.")}</p>`;
 }
 function plusMenu(){
   const m = mods(), fl = full(), b = (act, v, ico, t) => `<button class="mbox" data-act="${act}" data-v="${v || ""}"><span>${ico}</span>${t}</button>`;
   let x = "";
   if (supply()){ x += b("pick", "", m.bottle ? "🧴" : "🚚", L("Nayi delivery","New delivery")); x += b("payPick", "", "💰", L("Paisa wasool","Take payment")); x += b("newCust", "", "👤", L("Naya grahak","New customer")); }
+  if (m.tank) x += b("newLoad", "", "🚚", L("Suzuki bhari","Suzuki load"));
   if (fl) x += b("newExp", "", "🧾", L("Kharcha","Expense"));
   if (fl && m.plant){ x += b("newProd", "", "💧", L("Aaj ka pani","Production")); x += b("newSale", "", "🏪", L("Counter bikri","Counter sale")); }
   sheet(L("Kya karna hai?","What do you want to do?"), `<div class="boxes">${x}</div><button class="btn wide ghost" data-act="close" style="margin-top:14px">${L("Band karein","Close")}</button>`);
@@ -882,6 +886,20 @@ function fPay(id, rec){
 }
 
 /* ---------- Plant ---------- */
+function loadStats(day){
+  const sum = (a, f) => a.reduce((x, r) => x + num(f(r)), 0);
+  const loaded = sum(of("load").filter(r => r.day === day), r => r.data.litres);
+  const given = sum(of("delivery").filter(r => r.day === day && r.data.type === "tank"), r => r.data.qty);
+  return { loaded, given, left: loaded - given };
+}
+function fLoad(rec){
+  const d = rec ? rec.data : {};
+  sheet(rec ? L("Suzuki bhari (badlein)","Suzuki load (edit)") : "🚚 " + L("Suzuki bhari","Suzuki load"), `<form class="f" data-form="load" data-rid="${rec ? rec.id : ""}">
+    <p class="mute" style="margin:0">${mods().plant ? L("Plant se Suzuki mein kitna pani dala?","How much water went from the plant into the Suzuki?") : L("Suzuki mein kitna pani bhara?","How much water was loaded into the Suzuki?")}</p>
+    <div><label for="ld_l">${L("Kitne litre","Litres")}</label><input id="ld_l" name="litres" inputmode="decimal" required value="${e(d.litres ?? "")}"></div>
+    <div><label for="ld_d">${L("Tareekh","Date")}</label><input id="ld_d" name="day" type="date" value="${rec ? rec.day : today()}"></div>
+    <button class="btn wide">${L("Mehfooz karein","Save")}</button></form>`);
+}
 function vPlant(){
   const pl = of("plant"), last = item => { const a = pl.filter(r => r.data.t === "maint" && r.data.item === item).map(r => r.day).sort(); return a[a.length - 1]; };
   const days = d => Math.floor((new Date(today()) - new Date(d)) / 864e5);
@@ -890,7 +908,22 @@ function vPlant(){
     return `<div class="row"><div class="g"><b>${label}</b><small>${L("Aakhri tabdeeli","Last changed")}: ${nice(d)} · ${L("har","every")} ${lim} ${L("din","days")}</small></div><span class="pill ${st}">${n} ${L("din","days")}</span></div>`; };
   const prod = pl.filter(r => r.data.t === "prod").slice().reverse().slice(0, 10).map(r => `<div class="row"><div class="g"><b>${nice(r.day)}</b><small>${num(r.data.bottles)} ${L("botal bhari","bottles filled")}</small></div><div class="r">${num(r.data.litres).toLocaleString()} L</div><button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button></div>`).join("");
   const sales = of("sale").slice().reverse().slice(0, 10).map(r => `<div class="row"><div class="g"><b>${nice(r.day)}</b><small>${num(r.data.qty)} ${L("botal counter par bhari","bottles filled at counter")}</small></div><div class="r good">${rs(r.data.amount)}</div><button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button></div>`).join("");
-  return `<div class="card"><h2>${L("Filter aur membrane ki yaad-dehani","Filter and membrane reminders")}</h2>${rem("Filter", L("Filter (sediment / carbon)","Filters (sediment / carbon)"), 90)}${rem("Membrane", "RO Membrane", 365)}
+  const t = today(), sumD = (a, f) => a.reduce((x, r) => x + num(f(r)), 0);
+  const madeL = sumD(pl.filter(r => r.day === t && r.data.t === "prod"), r => r.data.litres);
+  const botL = sumD(pl.filter(r => r.day === t && r.data.t === "prod"), r => r.data.bottles) * 19;
+  const cntL = sumD(of("sale").filter(r => r.day === t), r => r.data.qty) * 19;
+  const ls = loadStats(t), restL = madeL - botL - cntL - ls.loaded;
+  const flow = `<div class="card"><h2>💧 ${L("Aaj plant ka pani kahan gaya","Where today's plant water went")}</h2>
+    <div class="row"><div class="g"><b>${L("Pani bana","Water produced")}</b></div><div class="r">${madeL.toLocaleString()} L</div></div>
+    <div class="row"><div class="g"><b>${L("Botalon mein","Into bottles")}</b><small>${L("19 litre fi botal","19 litres per bottle")}</small></div><div class="r">${botL.toLocaleString()} L</div></div>
+    <div class="row"><div class="g"><b>${L("Counter par bika","Sold at counter")}</b></div><div class="r">${cntL.toLocaleString()} L</div></div>
+    ${mods().tank ? `<div class="row"><div class="g"><b>🚚 ${L("Suzuki mein gaya","Into the Suzuki")}</b></div><div class="r">${ls.loaded.toLocaleString()} L</div></div>` : ""}
+    <div class="total"><span>${L("Baqi / hisaab se bahar","Remaining / unaccounted")}</span><span class="${restL < 0 ? "bad" : ""}">${restL.toLocaleString()} L</span></div></div>`;
+  const loads = of("load").slice().reverse().slice(0, 10).map(r => `<div class="row rw"><div class="g"><b>${nice(r.day)}</b><small>🚚 ${L("Suzuki bhari","Suzuki loaded")}${r.data.by ? " · " + e(r.data.by) : ""}</small></div><div class="r">${num(r.data.litres).toLocaleString()} L</div><div class="rbtns"><button class="btn sm ghost" data-act="editLoad" data-id="${r.id}" aria-label="Edit">✎</button><button class="btn sm danger" data-act="del" data-id="${r.id}" aria-label="Delete">✕</button></div></div>`).join("");
+  return `${flow}
+  ${mods().tank ? `<button class="btn wide" data-act="newLoad">🚚 ${L("Suzuki bhari","Suzuki load")}</button>
+  <div class="card"><h2>🚚 ${L("Suzuki mein kitna gaya","Suzuki loads")}</h2>${loads || `<p class="mute">${L("Abhi kuch nahi likha.","Nothing recorded yet.")}</p>`}</div>` : ""}
+  <div class="card"><h2>${L("Filter aur membrane ki yaad-dehani","Filter and membrane reminders")}</h2>${rem("Filter", L("Filter (sediment / carbon)","Filters (sediment / carbon)"), 90)}${rem("Membrane", "RO Membrane", 365)}
     <div class="acts" style="margin-top:12px"><button class="btn sm ghost" data-act="maint" data-v="Filter">${L("Filter aaj badla","Filter changed today")}</button><button class="btn sm ghost" data-act="maint" data-v="Membrane">${L("Membrane aaj badli","Membrane changed today")}</button></div></div>
   <div class="acts"><button class="btn" data-act="newProd">+ ${L("Aaj ka pani","Today's production")}</button><button class="btn ghost" data-act="newSale">+ ${L("Counter bikri","Counter sale")}</button></div>
   <div class="card"><h2>${L("Pani kitna bana","Production log")}</h2>${prod || `<p class="mute">${L("Abhi kuch nahi likha.","Nothing recorded yet.")}</p>`}</div>
@@ -937,7 +970,7 @@ function vHisaab(){
   const act = ["bottle","tank","plant"].filter(k => m[k]);
   const tInc = act.reduce((x, k) => x + inc[k], 0), tExp = act.reduce((x, k) => x + exp[k], 0) + exp.all, profit = tInc - tExp;
   const cash = sum(dl, r => r.data.paid) + sum(py, r => r.data.amount) + (m.plant ? inc.plant : 0);
-  const modRows = act.map(k => `<div class="row"><div class="g"><b>${N[k]}</b><small>${L("Bikri","Sales")} ${rs(inc[k])} · ${L("Kharcha","Expense")} ${rs(exp[k])}${k === "tank" ? ` · ${dl.filter(r => r.data.type === "tank").length} ${L("chakkar","trips")}` : ""}</small></div><div class="r ${inc[k] - exp[k] < 0 ? "bad" : "good"}">${rs(inc[k] - exp[k])}</div></div>`).join("") +
+  const modRows = act.map(k => `<div class="row"><div class="g"><b>${N[k]}</b><small>${L("Bikri","Sales")} ${rs(inc[k])} · ${L("Kharcha","Expense")} ${rs(exp[k])}${k === "tank" ? ` · ${dl.filter(r => r.data.type === "tank").length} ${L("chakkar","trips")} · ${L("bhara","loaded")} ${of("load").filter(r => inPeriod(r.day)).reduce((x, r) => x + num(r.data.litres), 0).toLocaleString()} L · ${L("diya","given")} ${dl.filter(r => r.data.type === "tank").reduce((x, r) => x + num(r.data.qty), 0).toLocaleString()} L` : ""}</small></div><div class="r ${inc[k] - exp[k] < 0 ? "bad" : "good"}">${rs(inc[k] - exp[k])}</div></div>`).join("") +
     (exp.all ? `<div class="row"><div class="g"><b>${L("Mushtarka kharcha","Shared expense")}</b></div><div class="r bad">-${rs(exp.all)}</div></div>` : "");
   /* har banday ka kaam (is muddat mein) aur us par kul baqi cash (shuru se ab tak) */
   const by = {}, g = k => by[k] || (by[k] = { n:0, cash:0, amt:0 });
@@ -1042,7 +1075,7 @@ const acts = {
     if (!c.data.tok){ const a = new Uint8Array(18); crypto.getRandomValues(a); const tok = Array.from(a, b => "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 56]).join(""); const d = { ...c.data, tok }; await api.upd(c.id, d); c.data = d; }
     const url = location.origin + location.pathname + "?o=" + c.data.tok;
     const msg = [`*${S.shop.name}*`, `${L("Assalam o alaikum","Hello")} ${c.data.name},`, L("Ab aap is link se ghar baithe paani mangwa sakte hain, aur apna hisaab bhi dekh sakte hain:","You can now order water from home with this link, and see your account:"), url, L("Is link ko sambhal kar rakhein, yeh sirf aap ke liye hai.","Keep this link safe, it is only for you.")].join("\n");
-    sheet(`📲 ${L("Order link","Order link")}: ${c.data.name}`, `<div class="f"><p class="mute" style="margin:0">${L("Yeh link grahak ko bhejein. Woh is se botal ya tanki mangwa sakega, aur order aap ki app mein \"Aaj\" par aa jayega.","Send this link to the customer. They can order with it, and the order shows on your Today page.")}</p>
+    sheet(`📲 ${L("Order link","Order link")}: ${c.data.name}`, `<div class="f"><p class="mute" style="margin:0">${L("Yeh link grahak ko bhejein. Woh is se botal ya Suzuki ka pani mangwa sakega, aur order aap ki app mein \"Aaj\" par aa jayega.","Send this link to the customer. They can order with it, and the order shows on your Today page.")}</p>
       <input id="olurl" readonly value="${e(url)}" aria-label="Link">
       ${c.data.phone ? `<a class="btn wide wa" target="_blank" rel="noopener" href="https://wa.me/${waNum(c.data.phone)}?text=${encodeURIComponent(msg)}">${L("WhatsApp par bhejein","Send on WhatsApp")}</a>` : ""}
       <button class="btn wide ghost" data-act="olcopy">${L("Link copy karein","Copy link")}</button></div>`);
@@ -1065,7 +1098,7 @@ const acts = {
   edit: el => { const r = S.recs.find(x => x.id === el.dataset.id); if (!r) return; if (r.kind === "delivery") fDeliver(r.data.cust, r); else if (r.kind === "payment") fPay(r.data.cust, r); else if (r.kind === "expense") fExp(r); },
   handover: el => fHand(el.dataset.v), stock: fStock,
   pinSet: () => fPin("set"), pinUnlock: () => fPin("unlock"),
-  plus: plusMenu, payPick: () => fPick("pay"),
+  plus: plusMenu, newLoad: () => fLoad(null), editLoad: el => fLoad(S.recs.find(r => r.id === el.dataset.id)), payPick: () => fPick("pay"),
   moreStaff: () => sheet(L("Delivery walay ladkay","Delivery staff"), staffHtml()),
   moreBackup: () => sheet(L("Backup (data ki hifazat)","Backup (keep your data safe)"), `<div class="f">${backupHtml()}</div>`),
   moreShop: () => { const si = shopInfo(); sheet(L("Raseed par dukaan ki maloomat","Shop details on receipt"), `<form class="f" data-form="shopinfo">
@@ -1108,7 +1141,7 @@ const acts = {
   bkLater: () => { S.bkLater = true; render(); },
   csv: () => {
     const st = custStats(), rows = [["Naam","Phone","Pata","Kaam","Rate","Baqaya (udhaar)","Botal us ke paas","Security"]];
-    of("customer").slice().sort((a, b) => a.data.name.localeCompare(b.data.name)).forEach(c => { const s = st[c.id] || { bal:0, held:0 }; rows.push([c.data.name, c.data.phone, c.data.addr, c.data.type === "tank" ? "Tanki" : "Botal", c.data.rate, Math.round(s.bal), c.data.type === "bottle" ? s.held : "", c.data.deposit || 0]); });
+    of("customer").slice().sort((a, b) => a.data.name.localeCompare(b.data.name)).forEach(c => { const s = st[c.id] || { bal:0, held:0 }; rows.push([c.data.name, c.data.phone, c.data.addr, c.data.type === "tank" ? "Suzuki" : "Botal", c.data.rate, Math.round(s.bal), c.data.type === "bottle" ? s.held : "", c.data.deposit || 0]); });
     download("udhaar-list-" + today() + ".csv", "\ufeff" + rows.map(r => r.map(csvCell).join(",")).join("\r\n"), "text/csv");
   },
   adminBackup: async el => {
@@ -1148,6 +1181,7 @@ const forms = {
       catch(err){ btChar = null; o.doprint = ""; o.printFail = printErr(err); }
     }
     const c = cust(f.dataset.id), qty = num(o.qty), rate = num(o.rate), old = f.dataset.rid ? S.recs.find(r => r.id === f.dataset.rid) : null;
+    if (c.data.type === "tank" && !old){ const lz = loadStats(o.day || today()); if (lz.loaded && qty > lz.left && f.dataset.okl !== String(qty)){ f.dataset.okl = String(qty); throw new Error(L(`Suzuki mein aaj sirf ${lz.left.toLocaleString()} litre bacha hai, aap ne ${qty.toLocaleString()} likha hai. Sahi hai to dobara dabayein.`, `Only ${lz.left.toLocaleString()} L left in the Suzuki today, you entered ${qty.toLocaleString()}. Tap again if correct.`)); } }
     if (qty <= 0) throw new Error(L("Miqdaar likhein","Enter a quantity"));
     const prev = (custStats()[c.id] || { bal:0 }).bal - (old ? num(old.data.amount) - num(old.data.paid) : 0);
     const most = qty * rate + Math.max(0, prev), pd = num(o.paid);
@@ -1187,6 +1221,13 @@ const forms = {
     else throw new Error(L("PIN ghalat hai","Wrong PIN"));
   },
   prod: async o => { S.recs.push(await api.add(S.shop.id, "plant", o.day || today(), { t:"prod", litres:num(o.litres), bottles:num(o.bottles) })); closeSheet(); render(); toast(L("Likh diya","Saved")); },
+  load: async (o, f) => {
+    if (num(o.litres) <= 0) throw new Error(L("Litre likhein","Enter litres"));
+    const old = f.dataset.rid ? S.recs.find(r => r.id === f.dataset.rid) : null, data = { litres:num(o.litres), by: old ? old.data.by : myName(), src: mods().plant ? "plant" : "" };
+    if (old){ await api.upd(old.id, data, o.day || old.day); old.data = data; old.day = o.day || old.day; }
+    else S.recs.push(await api.add(S.shop.id, "load", o.day || today(), data));
+    closeSheet(); render(); toast(L("Suzuki ka record likh diya","Suzuki load saved"));
+  },
   sale: async o => { S.recs.push(await api.add(S.shop.id, "sale", o.day || today(), { qty:num(o.qty), amount:num(o.amount), note:"" })); closeSheet(); render(); toast(L("Likh diya","Saved")); },
   worker: async o => { await api.createWorker(S.shop.id, { name:o.name.trim(), email:o.email.trim(), pw:o.pw }); S.workers = await api.workers(S.shop.id); closeSheet(); render(); sheet(L("Delivery walay ladkay","Delivery staff"), staffHtml()); toast(L("Login ban gaya","Login created")); }
 };

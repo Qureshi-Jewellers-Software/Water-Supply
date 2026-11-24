@@ -160,3 +160,10 @@ alter policy rec_upd on public.records
   with check (shop_id = my_shop());
 create index if not exists records_cust_tok on public.records ((data->>'tok')) where kind = 'customer';
 -- cust_portal(tok) aur cust_order(tok, qty, note): poori definition Supabase migration "customer_order_links" mein hai
+
+-- =====================================================
+-- UPDATE 5: Suzuki loads (kind 'load'), staff bhi likh sakta hai
+-- =====================================================
+alter policy rec_ins on public.records
+  with check (shop_id = my_shop() and (my_role() = 'owner' or kind in ('customer','delivery','payment','load')));
+-- soft_delete(): staff apni aaj ki 'load' entry bhi hata sakta hai (migration "suzuki_loads")
