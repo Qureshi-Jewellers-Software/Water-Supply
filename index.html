@@ -1355,7 +1355,23 @@ window.addEventListener("popstate", () => {
 if ("serviceWorker" in navigator && location.protocol === "https:"){ try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch(_){} }
 
 if (DEMO) seedDemo();
-if (ORDER_TOK) loadPortal(); else { boot(); startOrderPoll(); }
+/* App sirf APK se chale. Browser mein sirf paigham. Grahak ka order link (?o=) aur malik ka khufia link (?pc=) chalte rahenge. */
+const APK_PKG = "io.github.qureshi_jewellers_software.twa", OWNER_KEY = "qureshi786";
+function inApk(){
+  try {
+    if (document.referrer.indexOf("android-app://" + APK_PKG) === 0) sessionStorage.setItem("ps_apk", "1");
+    if (new URLSearchParams(location.search).get("pc") === OWNER_KEY){ sessionStorage.setItem("ps_apk", "1"); history.replaceState(null, "", location.pathname); }
+    return sessionStorage.getItem("ps_apk") === "1";
+  } catch(_){ return false; }
+}
+function renderBlocked(){
+  $("#app").innerHTML = `<div class="login" style="text-align:center;align-items:center;padding-top:90px">
+    <div class="logo">${IC.drop}</div>
+    <h1 style="font-size:26px">${L("Yeh app ab sirf APK se chalti hai","This app now works only from the APK")}</h1>
+    <p class="mute" style="margin:0">${L("Apne mobile par Paani Supply app kholein.","Please open the Paani Supply app on your phone.")}</p></div>`;
+}
+if (location.protocol === "https:" && !ORDER_TOK && !inApk()) renderBlocked();
+else if (ORDER_TOK) loadPortal(); else { boot(); startOrderPoll(); }
 </script>
 </body>
 </html>
