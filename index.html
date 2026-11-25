@@ -454,7 +454,7 @@ function render0(){
   const banner = DEMO ? `<div class="demo">${L("DEMO: yeh sirf namoona hai, data save nahi hota","DEMO: sample only, nothing is saved")}</div>` : "";
   if (S.loading){ app.innerHTML = banner + `<main><p class="mute">${L("Khul raha hai...","Loading...")}</p></main>`; return; }
   if (!S.me){ app.innerHTML = banner + vLogin(); return; }
-  const langBtn = `<button class="hbtn" data-act="lang">🌐</button>`;
+  const langBtn = `<button class="hbtn" data-act="lang">🌐 Language</button>`;
   if (S.me.role === "admin"){
     app.innerHTML = banner + `<header><button class="ham" data-act="drawer" aria-label="Menu">${IC.menu}</button><h1>${L("Admin Panel","Admin Panel")}<small>${e(S.me.email)}</small></h1>${langBtn}<button class="hbtn" data-act="logout">${L("Bahar","Logout")}</button></header><main>${vAdmin()}</main>`;
     return;
@@ -1412,7 +1412,7 @@ async function loadPortal(){
 }
 function renderPortal(){
   const app = $("#app"), banner = DEMO ? `<div class="demo">${L("DEMO: yeh sirf namoona hai, data save nahi hota","DEMO: sample only, nothing is saved")}</div>` : "";
-  const langBtn = `<button class="hbtn" data-act="lang">🌐</button>`;
+  const langBtn = `<button class="hbtn" data-act="lang">🌐 Language</button>`;
   const d = P.data;
   if (P.loading && !d){ app.innerHTML = banner + `<main><p class="mute">${L("Khul raha hai...","Loading...")}</p></main>`; return; }
   if (!d){
