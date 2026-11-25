@@ -58,7 +58,8 @@ nav button.plus svg{width:34px;height:34px}
 .statbtn:active{background:var(--accent-dk)}
 .statbtn span{font-size:15px;font-weight:600;color:var(--onacc)}
 .statbtn b{font-size:28px;font-weight:800;line-height:1.15;overflow-wrap:anywhere}
-.statbtn i{font-style:normal;font-size:14px;color:var(--onacc);margin-top:2px}
+.statbtn i{font-style:normal;font-size:14px;color:var(--onacc);margin-top:auto;padding-top:2px}
+@supports (grid-template-rows:subgrid){.stats{row-gap:0}.statbtn{display:grid;grid-row:span 3;grid-template-rows:subgrid;align-content:start;justify-items:start;margin-bottom:10px}.statbtn span{align-self:start}.statbtn b{align-self:end}.statbtn i{align-self:end;margin-top:0}}
 .statbtn.light{background:var(--soft);border:1px solid var(--soft-line);color:var(--navy)}
 .statbtn.light:active{background:#d6e5f8}
 .statbtn.light span{color:var(--navy);font-weight:700}
