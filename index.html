@@ -717,7 +717,7 @@ function vCust(){
   }).join("");
   return head + `<input id="q" type="search" placeholder="${L("Naam, phone ya gali se dhoondein","Search name, phone or street")}" value="${e(S.q)}" aria-label="Search">
   <button class="btn wide" data-act="newCust">+ ${L("New Customer","New customer")}</button>
-  <div class="card" id="custList">${rows || `<p class="mute">${L("Koi grahak nahi mila.","No customers found.")}</p>`}</div>`;
+  <div class="card" id="custList" style="margin-bottom:60vh">${rows || `<p class="mute">${L("Koi grahak nahi mila.","No customers found.")}</p>`}</div>`;
 }
 const DAYS = () => [[1,L("Peer","Mon")],[2,L("Mangal","Tue")],[3,L("Budh","Wed")],[4,L("Jumerat","Thu")],[5,L("Juma","Fri")],[6,L("Hafta","Sat")],[0,L("Itwar","Sun")]];
 function fCust(c){
@@ -1384,10 +1384,12 @@ function capOk(el){
   return ["text","search"].includes(t) && !["numeric","decimal","tel","email","url"].includes(im) && el.id !== "olurl" && !["pw","pin","email"].includes(el.name) && !el.closest(".pw");
 }
 document.addEventListener("focusin", ev => { if (capOk(ev.target)) ev.target.setAttribute("autocapitalize", "words"); });
+function searchTop(el){ const hd = document.querySelector("header"), y = el.getBoundingClientRect().top + window.scrollY - (hd ? hd.offsetHeight : 0) - 8; window.scrollTo(0, Math.max(0, y)); }
+document.addEventListener("focusin", ev => { const el = ev.target; if (el && ["q","aq","pq"].includes(el.id)) setTimeout(() => searchTop(el), 250); });
 document.addEventListener("input", ev => {
   const el = ev.target;
   if (capOk(el)){ const v = el.value, nv = v.replace(/(^|\s)(\p{Ll})/gu, (m, s, c) => s + c.toUpperCase()); if (nv !== v){ const pos = el.selectionStart; el.value = nv; try { el.setSelectionRange(pos, pos); } catch(_){} } }
-  if (el.id === "q"){ S.q = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vCust(); const cl = tmp.querySelector("#custList"); if (cl && $("#custList")) $("#custList").innerHTML = cl.innerHTML; }
+  if (el.id === "q"){ S.q = el.value; searchTop(el); const tmp = document.createElement("div"); tmp.innerHTML = vCust(); const cl = tmp.querySelector("#custList"); if (cl && $("#custList")) $("#custList").innerHTML = cl.innerHTML; }
   else if (el.id === "aq"){ S.aq = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vAdmin(); $("#aList").innerHTML = tmp.querySelector("#aList").innerHTML; }
   else if (el.id === "pq") $("#pickList").innerHTML = pickRows(el.value);
   else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate" || el.name === "paid")){ const b = num(el.form.qty.value) * num(el.form.rate.value); $("#dv_amt").textContent = rs(b); $("#dv_tot").textContent = rs(Math.max(0, b + num(el.form.dataset.prev))); dvAfter(el.form); }
