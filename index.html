@@ -412,6 +412,7 @@ async function boot(){
   S.loading = true; render();
   try{
     S.me = await api.session();
+    if (S.me && !DEMO) sb.rpc("touch_seen").then(() => {}, () => {});
     if (S.me && S.me.role === "admin") S.admin = await api.shops();
     else if (S.me && S.me.shop_id){
       S.shop = await api.shop(S.me.shop_id);
@@ -480,24 +481,35 @@ function vLogin(){
 /* ---------- Admin ---------- */
 const MODN = () => ({ bottle:L("Botal supply","Bottle supply"), tank:L("Suzuki supply","Suzuki supply"), plant:L("RO plant","RO plant"), olink:L("Order link","Order link") });
 function vAdmin(){
-  const a = S.admin || { shops:[], profiles:[] }, N = MODN();
-  const cards = a.shops.map(s => {
+  const a = S.admin || { shops:[], profiles:[] }, N = MODN(), M = today().slice(0,7);
+  const bl = s => s.billing || {}, paidM = s => (bl(s).paid || {})[M];
+  const fee = s => +bl(s).fee || 0;
+  const seen = s => { const t = [bl(s).seen, ...a.profiles.filter(p => p.shop_id === s.id).map(p => p.last_seen)].filter(Boolean).sort().pop(); return t ? ago(t) : L("Kabhi nahi","Never"); };
+  const F = S.af || "all";
+  const list = a.shops.filter(s => F === "due" ? s.active && fee(s) && !paidM(s) : F === "off" ? !s.active : true);
+  const got = a.shops.reduce((t, s) => t + (paidM(s) ? +paidM(s).amt || 0 : 0), 0);
+  const due = a.shops.filter(s => s.active && fee(s) && !paidM(s));
+  const cards = list.map(s => {
     const own = a.profiles.find(p => p.shop_id === s.id && p.role === "owner");
     const wk = a.profiles.filter(p => p.shop_id === s.id && p.role === "worker").length;
     return `<div class="card">
-      <div class="row" style="padding-top:0"><div class="g"><b>${e(s.name)}</b><small>${e(own ? own.email : "-")} · ${e(s.phone)} · ${wk} ${L("ladkay","staff")}</small></div>
+      <div class="row" style="padding-top:0"><div class="g"><b>${e(s.name)}</b><small>${e(own ? own.email : ((s.billing || {}).owner || "-"))} · ${e(s.phone)} · ${wk} ${L("ladkay","staff")}</small></div>
       <span class="pill ${s.active ? "good" : "bad"}">${s.active ? L("Chalu","On") : L("Band","Off")}</span></div>
+      <div class="row"><div class="g"><b>${fee(s) ? rs(fee(s)) + L(" mahana"," / month") : L("Fees tay nahi","No fee set")}</b><small>${L("Aakhri dafa chala","Last used")}: ${seen(s)}</small></div>
+      ${!fee(s) ? "" : paidM(s) ? `<span class="pill good">${L("Is mahine mil gayi","Paid this month")}</span>` : `<span class="pill bad">${L("Is mahine baqi","Due this month")}</span>`}</div>
       <div class="f" style="margin-top:10px">
         ${["bottle","tank","plant","olink"].map(k => `<label class="chk"><input type="checkbox" id="m_${s.id}_${k}" data-act="mod" data-id="${s.id}" data-k="${k}" ${s.modules[k] ? "checked" : ""}>${N[k]}</label>`).join("")}
-        <div class="acts"><button class="btn sm ghost" data-act="deleted" data-id="${s.id}">${L("Delete hui entries","Deleted entries")}</button>
+        <div class="acts"><button class="btn sm" data-act="fees" data-id="${s.id}">💰 ${L("Fees","Fees")}</button><button class="btn sm ghost" data-act="deleted" data-id="${s.id}">${L("Delete hui entries","Deleted entries")}</button>
         <button class="btn sm ghost" data-act="clearPin" data-id="${s.id}">${L("Malik PIN hata dein","Clear owner PIN")}</button>
         <button class="btn sm ${s.active ? "danger" : ""}" data-act="shopActive" data-id="${s.id}">${s.active ? L("Account band karein","Turn account off") : L("Account chalu karein","Turn account on")}</button></div>
       </div></div>`;
   }).join("");
-  return `<div class="tiles"><div class="tile"><b>${a.shops.length}</b><span>${L("Kul clients","Total clients")}</span></div><div class="tile good"><b>${a.shops.filter(s => s.active).length}</b><span>${L("Chalu","Active")}</span></div></div>
+  return `<div class="tiles"><div class="tile"><b>${a.shops.length}</b><span>${L("Kul clients","Total clients")}</span></div><div class="tile good"><b>${a.shops.filter(s => s.active).length}</b><span>${L("Chalu","Active")}</span></div>
+  <div class="tile good"><b>${rs(got)}</b><span>${L("Is mahine fees mili","Fees received this month")}</span></div><div class="tile bad"><b>${due.length}</b><span>${L("Fees baqi","Fees due")} · ${rs(due.reduce((t, s) => t + fee(s), 0))}</span></div></div>
+  <div class="seg">${[["all",L("Sab","All")],["due",L("Fees baqi","Fees due")],["off",L("Band","Off")]].map(x => `<button class="${F===x[0]?"on":""}" data-act="af" data-v="${x[0]}">${x[1]}</button>`).join("")}</div>
   <button class="btn wide" data-act="newShop">+ ${L("Naya client banayein","Add new client")}</button>
   <button class="btn wide ghost" data-act="adminBackup">${L("Sab clients ka backup utaarein","Download backup of all clients")}</button>
-  ${cards || `<p class="mute">${L("Abhi koi client nahi. Upar wale button se pehla client banayein.","No clients yet. Use the button above to add the first one.")}</p>`}`;
+  ${cards || (a.shops.length ? `<p class="mute">${L("Is list mein koi client nahi.","No clients in this list.")}</p>` : "") || `<p class="mute">${L("Abhi koi client nahi. Upar wale button se pehla client banayein.","No clients yet. Use the button above to add the first one.")}</p>`}`;
 }
 function describe(r, cm){
   const d = r.data || {}, c = cm[d.cust] || "?";
@@ -518,6 +530,22 @@ async function sDeleted(shopId){
   const s = S.admin.shops.find(x => x.id === shopId);
   sheet(`${L("Delete hui entries","Deleted entries")}: ${s ? s.name : ""}`, del.map(r => `<div class="row"><div class="g"><b>${e(describe(r, cm))}</b><small>${nice(r.day)} · ${L("delete hui","deleted")} ${nice(String(r.deleted_at).slice(0,10))}</small></div>
     <button class="btn sm" data-act="restore" data-id="${r.id}" data-shop="${shopId}">${L("Wapas layein","Restore")}</button></div>`).join("") || `<p class="mute">${L("Is client ki koi entry delete nahi hui.","This client has no deleted entries.")}</p>`);
+}
+function ago(t){
+  const m = Math.floor((Date.now() - new Date(t)) / 60000);
+  if (m < 2) return L("Abhi abhi","Just now"); if (m < 60) return m + L(" minute pehle"," min ago");
+  const h = Math.floor(m / 60); if (h < 24) return h + L(" ghante pehle"," hours ago");
+  const d = Math.floor(h / 24); return d + L(" din pehle"," days ago");
+}
+function fFees(id){
+  const s = S.admin.shops.find(x => x.id === id), b = s.billing || {}, P = b.paid || {}, M = today().slice(0,7);
+  const hist = Object.keys(P).sort().reverse().map(k => `<div class="row"><div class="g"><b>${k}</b><small>${nice(P[k].day)}</small></div><b>${rs(P[k].amt)}</b></div>`).join("");
+  sheet(`${L("Fees","Fees")}: ${s.name}`, `<form class="f" data-form="fees" data-id="${id}">
+    <label>${L("Mahana fees (Rs)","Monthly fee (Rs)")}<input name="fee" type="number" inputmode="numeric" min="0" value="${b.fee || ""}"></label>
+    <label>${L("Kis mahine ki","Which month")}<input name="month" type="month" value="${M}"></label>
+    <label>${L("Kitni mili (khaali chhorein agar abhi nahi mili)","Amount received (leave empty if not yet)")}<input name="amt" type="number" inputmode="numeric" min="0" value="${P[M] ? P[M].amt : ""}"></label>
+    <button class="btn wide">${L("Mehfooz karein","Save")}</button></form>
+    ${hist ? `<h2 style="margin-top:16px">${L("Pichli fees","Past fees")}</h2>${hist}` : ""}`);
 }
 function fNewShop(){
   const N = MODN();
@@ -1181,6 +1209,8 @@ const acts = {
   slipPrint: async () => { if (S.slipCv) await printCV(S.slipCv); },
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.max(0, Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev))); dvAfter(f); },
   billpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); dvAfter(f); },
+  fees: el => fFees(el.dataset.id),
+  af: el => { S.af = el.dataset.v; render(); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
   shopActive: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id);
     if (s.active && el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka band karein? Dobara dabayein","Really turn off? Tap again"); setTimeout(() => { if (el.isConnected) render(); }, 4000); return; }
@@ -1215,6 +1245,12 @@ const acts = {
 };
 const forms = {
   login: async o => { await api.login(o.email.trim(), o.pw); await boot(); },
+  fees: async (o, f) => {
+    const s = S.admin.shops.find(x => x.id === f.dataset.id), b = JSON.parse(JSON.stringify(s.billing || {}));
+    b.fee = +o.fee || 0; b.paid = b.paid || {};
+    if (o.month){ if (+o.amt > 0) b.paid[o.month] = { amt:+o.amt, day:today() }; else delete b.paid[o.month]; }
+    await api.updateShop(s.id, { billing:b }); s.billing = b; closeSheet(); render(); toast(L("Mehfooz ho gaya","Saved"));
+  },
   newShop: async o => {
     const modules = { bottle: !!o.m_bottle, tank: !!o.m_tank, plant: !!o.m_plant };
     if (!modules.bottle && !modules.tank && !modules.plant) throw new Error(L("Kam az kam ek kaam chunein","Choose at least one type of work"));
