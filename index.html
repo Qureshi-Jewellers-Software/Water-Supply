@@ -763,7 +763,7 @@ function billLink(c, s){
   lines.push(L("Shukriya","Thank you"));
   return "https://wa.me/" + waNum(c.data.phone) + "?text=" + encodeURIComponent(lines.join("\n"));
 }
-function waNum(p){ let n = String(p || "").replace(/\D/g, ""); if (n.startsWith("0")) n = "92" + n.slice(1); return n; }
+function waNum(p){ let n = String(p || "").replace(/\D/g, ""); if (n.startsWith("0092")) n = n.slice(2); else if (n.startsWith("0")) n = "92" + n.slice(1); else if (n.length === 10 && n.startsWith("3")) n = "92" + n; return n; }
 function waLink(c, s){
   const lines = [`*${S.shop.name}*`, `${L("Assalam o alaikum","Hello")} ${c.data.name},`, `${L("Aap ka baqaya","Your balance due")}: ${rs(s.bal)}`];
   if (c.data.type === "bottle") lines.push(`${L("Aap ke paas hamari botalen","Our bottles with you")}: ${s.held}`);
