@@ -489,7 +489,13 @@ function vAdmin(){
   const list = a.shops.filter(s => F === "due" ? s.active && fee(s) && !paidM(s) : F === "off" ? !s.active : true);
   const got = a.shops.reduce((t, s) => t + (paidM(s) ? +paidM(s).amt || 0 : 0), 0);
   const due = a.shops.filter(s => s.active && fee(s) && !paidM(s));
-  const cards = list.map(s => {
+  const Q = (S.aq || "").toLowerCase();
+  const rows = list.filter(s => !Q || s.name.toLowerCase().includes(Q)).map(s => {
+    const own = a.profiles.find(p => p.shop_id === s.id && p.role === "owner");
+    const st = !s.active ? `<span class="pill bad">${L("Band","Off")}</span>` : !fee(s) ? `<span class="pill">${L("Fees nahi","No fee")}</span>` : paidM(s) ? `<span class="pill good">${L("Paid","Paid")}</span>` : `<span class="pill bad">${L("Baqi","Due")}</span>`;
+    return `<button class="row" data-act="shop" data-id="${s.id}" style="width:100%;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;font:inherit;color:inherit"><div class="g"><b>${e(s.name)}</b><small>${seen(s)}</small></div>${st}</button>`;
+  }).join("");
+  S.adminCard = s => {
     const own = a.profiles.find(p => p.shop_id === s.id && p.role === "owner");
     const wk = a.profiles.filter(p => p.shop_id === s.id && p.role === "worker").length;
     return `<div class="card">
@@ -503,13 +509,14 @@ function vAdmin(){
         <button class="btn sm ghost" data-act="clearPin" data-id="${s.id}">${L("Malik PIN hata dein","Clear owner PIN")}</button>
         <button class="btn sm ${s.active ? "danger" : ""}" data-act="shopActive" data-id="${s.id}">${s.active ? L("Account band karein","Turn account off") : L("Account chalu karein","Turn account on")}</button></div>
       </div></div>`;
-  }).join("");
+  };
   return `<div class="tiles"><div class="tile"><b>${a.shops.length}</b><span>${L("Kul clients","Total clients")}</span></div><div class="tile good"><b>${a.shops.filter(s => s.active).length}</b><span>${L("Chalu","Active")}</span></div>
   <div class="tile good"><b>${rs(got)}</b><span>${L("Is mahine fees mili","Fees received this month")}</span></div><div class="tile bad"><b>${due.length}</b><span>${L("Fees baqi","Fees due")} · ${rs(due.reduce((t, s) => t + fee(s), 0))}</span></div></div>
   <div class="seg">${[["all",L("Sab","All")],["due",L("Fees baqi","Fees due")],["off",L("Band","Off")]].map(x => `<button class="${F===x[0]?"on":""}" data-act="af" data-v="${x[0]}">${x[1]}</button>`).join("")}</div>
   <button class="btn wide" data-act="newShop">+ ${L("Naya client banayein","Add new client")}</button>
   <button class="btn wide ghost" data-act="adminBackup">${L("Sab clients ka backup utaarein","Download backup of all clients")}</button>
-  ${cards || (a.shops.length ? `<p class="mute">${L("Is list mein koi client nahi.","No clients in this list.")}</p>` : "") || `<p class="mute">${L("Abhi koi client nahi. Upar wale button se pehla client banayein.","No clients yet. Use the button above to add the first one.")}</p>`}`;
+  ${a.shops.length ? `<input id="aq" type="search" placeholder="${L("Client ka naam dhoondein","Search client")}" value="${e(S.aq || "")}" autocomplete="off" style="margin:10px 0">` : ""}
+  <div id="aList">${rows ? `<div class="card" style="padding:4px 16px">${rows}</div>` : (a.shops.length ? `<p class="mute">${L("Is list mein koi client nahi.","No clients in this list.")}</p>` : "")}</div>${a.shops.length ? "" : `<p class="mute">${L("Abhi koi client nahi. Upar wale button se pehla client banayein.","No clients yet. Use the button above to add the first one.")}</p>`}`;
 }
 function describe(r, cm){
   const d = r.data || {}, c = cm[d.cust] || "?";
@@ -1210,11 +1217,12 @@ const acts = {
   fullpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.max(0, Math.round(num(f.qty.value) * num(f.rate.value) + num(f.dataset.prev))); dvAfter(f); },
   billpaid: () => { const f = $('form[data-form="deliver"]'); f.paid.value = Math.round(num(f.qty.value) * num(f.rate.value)); dvAfter(f); },
   fees: el => fFees(el.dataset.id),
+  shop: el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); sheet(s.name, S.adminCard(s).replace('<div class="card">', '<div>')); },
   af: el => { S.af = el.dataset.v; render(); },
   mod: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id); const mo = { ...s.modules, [el.dataset.k]: el.checked }; await api.updateShop(s.id, { modules: mo }); s.modules = mo; toast(L("Badal diya","Updated")); },
   shopActive: async el => { const s = S.admin.shops.find(x => x.id === el.dataset.id);
-    if (s.active && el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka band karein? Dobara dabayein","Really turn off? Tap again"); setTimeout(() => { if (el.isConnected) render(); }, 4000); return; }
-    await api.updateShop(s.id, { active: !s.active }); s.active = !s.active; render(); },
+    if (s.active && el.dataset.sure !== "1"){ el.dataset.sure = "1"; el.textContent = L("Pakka band karein? Dobara dabayein","Really turn off? Tap again"); setTimeout(() => { if (el.isConnected){ el.dataset.sure = ""; el.textContent = L("Account band karein","Turn account off"); } }, 4000); return; }
+    await api.updateShop(s.id, { active: !s.active }); s.active = !s.active; render(); if ($("#sheet").innerHTML) acts.shop({ dataset:{ id:s.id } }); },
   backup: () => {
     const name = "backup-" + S.shop.name.replace(/[^a-z0-9]+/gi, "-") + "-" + today() + ".json";
     download(name, JSON.stringify({ app:"Paani Supply Hisaab", date:new Date().toISOString(), shop:S.shop, staff:S.workers.map(w => ({ name:w.name, email:w.email, active:w.active })), records:S.recs.filter(r => r.kind !== "setting") }, null, 1), "application/json");
@@ -1353,6 +1361,7 @@ document.addEventListener("input", ev => {
   const el = ev.target;
   if (capOk(el)){ const v = el.value, nv = v.replace(/(^|\s)(\p{Ll})/gu, (m, s, c) => s + c.toUpperCase()); if (nv !== v){ const pos = el.selectionStart; el.value = nv; try { el.setSelectionRange(pos, pos); } catch(_){} } }
   if (el.id === "q"){ S.q = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vCust(); const cl = tmp.querySelector("#custList"); if (cl && $("#custList")) $("#custList").innerHTML = cl.innerHTML; }
+  else if (el.id === "aq"){ S.aq = el.value; const tmp = document.createElement("div"); tmp.innerHTML = vAdmin(); $("#aList").innerHTML = tmp.querySelector("#aList").innerHTML; }
   else if (el.id === "pq") $("#pickList").innerHTML = pickRows(el.value);
   else if (el.form && el.form.dataset.form === "deliver" && (el.name === "qty" || el.name === "rate" || el.name === "paid")){ const b = num(el.form.qty.value) * num(el.form.rate.value); $("#dv_amt").textContent = rs(b); $("#dv_tot").textContent = rs(Math.max(0, b + num(el.form.dataset.prev))); dvAfter(el.form); }
 });
