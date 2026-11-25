@@ -632,9 +632,8 @@ function vToday(){
   }
   return `<div class="mute" style="font-weight:700">${nice(t)}${!fl ? " · " + L("sirf mera kaam","my work only") : ""}</div>
   ${supply() ? ordersCard() : ""}
-  ${fl && !S.bkLater && bkInfo().due ? `<div class="card f" style="border:2px solid var(--warn)"><h2>💾 ${L("Backup ka waqt ho gaya","Time for a backup")}</h2>
-    <p class="mute" style="margin:0">${bkInfo().last ? L("Aakhri backup","Last backup") + " " + bkInfo().days + " " + L("din pehle liya tha.","days ago.") : L("Abhi tak koi backup nahi liya.","No backup taken yet.")}</p>
-    <div class="acts"><button class="btn" data-act="backup">💾 ${L("Abhi backup lein","Back up now")}</button><button class="btn ghost" data-act="bkLater">${L("Baad mein","Later")}</button></div></div>` : ""}
+  ${fl && !S.bkLater && bkInfo().due ? `<div style="border:2px solid var(--warn);border-radius:18px;margin-bottom:14px">${fold("bk", "💾 Backup Reminder", "", `<p class="mute" style="margin:8px 0">${bkInfo().last ? L("Aakhri backup","Last backup") + " " + bkInfo().days + " " + L("din pehle liya tha.","days ago.") : L("Abhi tak koi backup nahi liya.","No backup taken yet.")}</p>
+    <div class="acts"><button class="btn" data-act="backup">💾 ${L("Abhi backup lein","Back up now")}</button><button class="btn ghost" data-act="bkLater">${L("Baad mein","Later")}</button></div>`).replace('class="card fold"', 'class="card fold" style="margin:0"')}</div>` : ""}
   ${top ? `<div class="card"><div class="stats">${top}</div></div>` : ""}
   ${low ? `<div class="card"><div class="stats">${low}</div></div>` : ""}
   ${supply() ? `<button class="btn wide" data-act="pick">+ ${L("New Delivery","New delivery")}</button>${routeCard}
