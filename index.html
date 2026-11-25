@@ -114,6 +114,8 @@ input[type=checkbox]{width:30px;height:30px;accent-color:var(--accent);flex:none
 [dir=rtl] .ham{margin:-4px -8px -4px 0}
 [dir=rtl] .pw input{padding-right:12px;padding-left:58px}[dir=rtl] .pw .eye{right:auto;left:6px}
 [dir=rtl] .drw .pn{animation-name:drInR}@keyframes drInR{from{transform:translateX(100%)}to{transform:none}}
+.qbar{position:sticky;top:var(--hh,64px);z-index:4;background:var(--bg);padding:8px 0;margin:0 0 6px}
+.qbar input{margin:0}
 .ham{background:transparent;border:0;color:inherit;width:44px;height:44px;margin:-4px 0 -4px -8px;padding:8px;border-radius:10px;cursor:pointer;flex:none}
 .ham svg{width:28px;height:28px;display:block}
 .drw{position:fixed;inset:0;z-index:20;background:rgba(4,20,26,.55);display:flex}
@@ -441,6 +443,7 @@ async function boot(){
 
 /* ================= render ================= */
 function fitH(){
+  const hd = document.querySelector("header"); if (hd) document.documentElement.style.setProperty("--hh", hd.offsetHeight + "px");
   const h = document.querySelector("header h1"); if (!h) return;
   let f = 21; h.style.fontSize = f + "px";
   while (f > 12 && h.scrollWidth > h.clientWidth + 1){ f -= 0.5; h.style.fontSize = f + "px"; }
@@ -716,8 +719,8 @@ function vCust(){
     return `<div class="row tap" data-act="cust" data-id="${c.id}"><div class="g"><b>${e(c.data.name)}</b><small>${e(c.data.addr || c.data.phone || "")}${c.data.type === "bottle" ? ` · ${s.held} ${L("botal us ke paas","bottles held")}` : ` · ${L("Suzuki","Suzuki")}`}</small></div>
     <div class="r ${s.bal > 0 ? "bad" : ""}">${s.bal > 0 ? rs(s.bal) : `<span class="pill good">${L("Saaf","Clear")}</span>`}</div></div>`;
   }).join("");
-  return head + `<input id="q" type="search" placeholder="${L("Naam, phone ya gali se dhoondein","Search name, phone or street")}" value="${e(S.q)}" aria-label="Search">
-  <button class="btn wide" data-act="newCust">+ ${L("New Customer","New customer")}</button>
+  return head + `<button class="btn wide" data-act="newCust">+ ${L("New Customer","New customer")}</button>
+  <div class="qbar"><input id="q" type="search" placeholder="${L("Naam, phone ya gali se dhoondein","Search name, phone or street")}" value="${e(S.q)}" aria-label="Search"></div>
   <div class="card" id="custList" style="margin-bottom:60vh">${rows || `<p class="mute">${L("Koi grahak nahi mila.","No customers found.")}</p>`}</div>`;
 }
 const DAYS = () => [[1,L("Peer","Mon")],[2,L("Mangal","Tue")],[3,L("Budh","Wed")],[4,L("Jumerat","Thu")],[5,L("Juma","Fri")],[6,L("Hafta","Sat")],[0,L("Itwar","Sun")]];
@@ -1385,8 +1388,11 @@ function capOk(el){
   return ["text","search"].includes(t) && !["numeric","decimal","tel","email","url"].includes(im) && el.id !== "olurl" && !["pw","pin","email"].includes(el.name) && !el.closest(".pw");
 }
 document.addEventListener("focusin", ev => { if (capOk(ev.target)) ev.target.setAttribute("autocapitalize", "words"); });
-function searchTop(el){ const hd = document.querySelector("header"), y = el.getBoundingClientRect().top + window.scrollY - (hd ? hd.offsetHeight : 0) - 8; window.scrollTo(0, Math.max(0, y)); }
-document.addEventListener("focusin", ev => { const el = ev.target; if (el && ["q","aq","pq"].includes(el.id)) setTimeout(() => searchTop(el), 250); });
+function searchTop(el){ const box = el.closest(".qbar") || el, hd = document.querySelector("header"); const y = box.getBoundingClientRect().top + window.scrollY - (hd ? hd.offsetHeight : 0) - 4; if (Math.abs(y - window.scrollY) > 2) window.scrollTo(0, Math.max(0, y)); }
+let qFocus = null;
+document.addEventListener("focusin", ev => { const el = ev.target; if (el && ["q","aq","pq"].includes(el.id)){ qFocus = el; [50, 300, 600, 900].forEach(t => setTimeout(() => { if (document.activeElement === el) searchTop(el); }, t)); } });
+document.addEventListener("focusout", () => { qFocus = null; });
+if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (qFocus && document.activeElement === qFocus) searchTop(qFocus); });
 document.addEventListener("input", ev => {
   const el = ev.target;
   if (capOk(el)){ const v = el.value, nv = v.replace(/(^|\s)(\p{Ll})/gu, (m, s, c) => s + c.toUpperCase()); if (nv !== v){ const pos = el.selectionStart; el.value = nv; try { el.setSelectionRange(pos, pos); } catch(_){} } }
