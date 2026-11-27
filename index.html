@@ -496,8 +496,8 @@ function vLogin(){
       <button class="btn wide ghost" data-act="demo" data-v="admin@demo.pk">Admin</button>
       <a class="btn wide ghost" href="?o=demoHajiAslamLink0001">${L("Grahak ka order page","Customer order page")}</a></div>`
     : `<form class="card f" data-form="login">
-      <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="username" required></div>
-      <div><label for="lg_p">Password</label><div class="pw"><input id="lg_p" name="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required><button type="button" class="eye" data-act="eye" data-v="lg_p" aria-label="${L("Dikhayein","Show")}">${IC.eyeOff}</button></div></div>
+      <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+      <div><label for="lg_p">Password</label><div class="pw"><input id="lg_p" name="pw" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" required><button type="button" class="eye" data-act="eye" data-v="lg_p" aria-label="${L("Dikhayein","Show")}">${IC.eyeOff}</button></div></div>
       <button class="btn wide">${L("Login","Login")}</button></form>`}
     <button class="btn ghost sm" data-act="lang" style="align-self:flex-start">🌐 Language: ${LNAME[LANG]}</button>
   </div>`;
