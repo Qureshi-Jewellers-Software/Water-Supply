@@ -496,8 +496,8 @@ function vLogin(){
       <button class="btn wide ghost" data-act="demo" data-v="admin@demo.pk">Admin</button>
       <a class="btn wide ghost" href="?o=demoHajiAslamLink0001">${L("Grahak ka order page","Customer order page")}</a></div>`
     : `<form class="card f" data-form="login">
-      <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
-      <div><label for="lg_p">Password</label><div class="pw"><input id="lg_p" name="pw" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" required><button type="button" class="eye" data-act="eye" data-v="lg_p" aria-label="${L("Dikhayein","Show")}">${IC.eyeOff}</button></div></div>
+      <div><label for="lg_e">Email</label><input id="lg_e" name="email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
+      <div><label for="lg_p">Password</label><div class="pw"><input id="lg_p" name="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required><button type="button" class="eye" data-act="eye" data-v="lg_p" aria-label="${L("Dikhayein","Show")}">${IC.eyeOff}</button></div></div>
       <button class="btn wide">${L("Login","Login")}</button></form>`}
     <button class="btn ghost sm" data-act="lang" style="align-self:flex-start">🌐 Language: ${LNAME[LANG]}</button>
   </div>`;
@@ -1405,6 +1405,7 @@ if (el.dataset && el.dataset.act === "mod"){ try { await acts.mod(el); } catch(e
 });
 document.addEventListener("submit", async ev => {
   const f = ev.target.closest("form[data-form]"); if (!f) return; ev.preventDefault(); if (busy) return;
+  if (f.dataset.form === "login" && Date.now() - (window.lgTap || 0) > 2500) return; // sirf Login button dabane par andar jayein
   const sub = ev.submitter, o = Object.fromEntries(new FormData(f).entries()), btn = sub || f.querySelector("button:not([type=button])");
   if (sub && sub.dataset.print) o.doprint = "1";
   if (sub && sub.dataset.wa) o.dowa = "1";
@@ -1422,6 +1423,7 @@ function capOk(el){
 document.addEventListener("focusin", ev => { if (capOk(ev.target)) ev.target.setAttribute("autocapitalize", "words"); });
 function searchTop(el){ const box = el.closest(".qbar") || el, hd = document.querySelector("header"); const y = box.getBoundingClientRect().top + window.scrollY - (hd ? hd.offsetHeight : 0) - 4; if (Math.abs(y - window.scrollY) > 2) window.scrollTo(0, Math.max(0, y)); }
 let qFocus = null;
+document.addEventListener("pointerdown", ev => { if (ev.isTrusted && ev.target.closest && ev.target.closest('form[data-form="login"] button.btn')) window.lgTap = Date.now(); }, true);
 document.addEventListener("focusin", ev => { const el = ev.target; if (el && ["q","aq","pq"].includes(el.id)){ qFocus = el; [50, 300, 600, 900].forEach(t => setTimeout(() => { if (document.activeElement === el) searchTop(el); }, t)); } });
 document.addEventListener("focusout", () => { qFocus = null; });
 if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (qFocus && document.activeElement === qFocus) searchTop(qFocus); });
