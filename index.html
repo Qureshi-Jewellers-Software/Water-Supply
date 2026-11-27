@@ -467,12 +467,12 @@ function render0(){
     <main><div class="card"><h2>${L("Account band hai","Account is off")}</h2><p class="mute">${L("Yeh account abhi chalu nahi. Admin se rabta karein.","This account is not active. Please contact the admin.")}</p></div></main>`;
     return;
   }
-  const tabs = [["aaj",L("Aaj","Today"),IC.home]];
+  const tabs = [["aaj","Home",IC.home]];
   if (supply()) tabs.push(["cust",L("Grahak","Customers"),IC.users]);
   if (full() && mods().plant) tabs.push(["plant","Plant",IC.plant]);
   if (full()) tabs.push(["exp",L("Kharcha","Expense"),IC.cash],["his",L("Hisaab","Accounts"),IC.chart]);
   if (tabs.length % 2 === 0 && supply()) tabs.push(["route",L("Route","Route"),IC.route]);
-  tabs.push(["more","Home",IC.more]);
+  tabs.push(["more",L("Aur","More"),IC.more]);
   if (!tabs.some(t => t[0] === S.tab)) S.tab = "aaj";
   const view = {aaj:vToday, cust:vCust, plant:vPlant, exp:vExp, his:vHisaab, route:vRoute, more:vMore}[S.tab]();
   app.innerHTML = banner + `<header><button class="ham" data-act="drawer" aria-label="Menu">${IC.menu}</button><h1>${e(S.shop.name)}<small>${e(S.me.name || S.me.email)} · ${isOwner() ? L("Malik","Owner") : L("Delivery wala","Delivery staff")}</small></h1>${isOwner() && pin() ? `<button class="hbtn" data-act="${S.unlocked ? "pinLock" : "pinUnlock"}">${S.unlocked ? "Lock" : L("Malik PIN","Owner PIN")}</button>` : ""}</header>
