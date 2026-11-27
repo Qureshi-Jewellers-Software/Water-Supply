@@ -617,7 +617,7 @@ function fNewShop(){
     <div><label for="ns_e">${L("Login email (Gmail)","Login email")}</label><input id="ns_e" name="email" type="email" required autocomplete="off"></div>
     <div><label for="ns_p">${L("Password (kam az kam 6 harf)","Password (min 6 characters)")}</label><input id="ns_p" name="pw" minlength="6" required autocomplete="off"></div>
     <div class="f"><label>${L("Is client ka kaam","This client's work")}</label>
-    ${["bottle","tank","plant"].map((k,i) => `<label class="chk"><input type="checkbox" id="ns_m${i}" name="m_${k}" ${k === "bottle" ? "checked" : ""}>${N[k]}</label>`).join("")}</div>
+    ${["bottle","tank","plant","olink"].map((k,i) => `<label class="chk"><input type="checkbox" id="ns_m${i}" name="m_${k}" ${k === "bottle" ? "checked" : ""}>${N[k]}</label>`).join("")}</div>
     <button class="btn wide">${L("Client banayein","Create client")}</button></form>`);
 }
 
@@ -1323,7 +1323,7 @@ const forms = {
     await api.updateShop(s.id, { billing:b }); s.billing = b; closeSheet(); render(); toast(L("Save ho gaya","Saved"));
   },
   newShop: async o => {
-    const modules = { bottle: !!o.m_bottle, tank: !!o.m_tank, plant: !!o.m_plant };
+    const modules = { bottle: !!o.m_bottle, tank: !!o.m_tank, plant: !!o.m_plant, olink: !!o.m_olink };
     if (!modules.bottle && !modules.tank && !modules.plant) throw new Error(L("Kam az kam ek kaam chunein","Choose at least one type of work"));
     await api.createShop({ name:o.name.trim(), owner:o.owner.trim(), phone:o.phone.trim(), email:o.email.trim(), pw:o.pw, modules });
     S.admin = await api.shops(); closeSheet(); render(); toast(L("Client ban gaya","Client created"));
